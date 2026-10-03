@@ -80,6 +80,8 @@ libs/ffmpeg contains FFmpeg %s (LGPL v3+), used to decode MP3 and other
 formats. See libs/ffmpeg/NOTICE.txt for its license and source code, and
 Help > About in stimconv for all other attributions.
 
+More information: https://github.com/trilithus/stimconv#readme
+
 stimconv itself is MIT No Attribution (see LICENSE.txt). It is provided as is,
 without warranty, and its authors accept no liability for any harm or damage
 arising from the software, its use, or the use of the files it produces.
@@ -126,6 +128,8 @@ command line.
 FFmpeg is not bundled: install it from your distribution (it must be on
 PATH, or pass --ffmpeg / set STIMCONV_FFMPEG). It is needed to decode MP3
 and other formats. See Help > About in stimconv for all attributions.
+
+More information: https://github.com/trilithus/stimconv#readme
 
 stimconv itself is MIT No Attribution (see LICENSE.txt). It is provided as is,
 without warranty, and its authors accept no liability for any harm or damage
