@@ -1,0 +1,12 @@
+{
+  "branch": "9.0",
+  "variant": "win64-lgpl",
+  "release": "autobuild-2026-10-01-13-06",
+  "asset": "ffmpeg-n9.0.2-22-g46d8f462ee-win64-lgpl-9.0.zip",
+  "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-01-13-06/ffmpeg-n9.0.2-22-g46d8f462ee-win64-lgpl-9.0.zip",
+  "sha256": "7177e17fc9e4d3170c9a6f9009fcbc0924a51fd5beeac20cbb56cccdeb057f2c",
+  "version": "n9.0.2-22-g46d8f462ee",
+  "ffmpeg_commit": "46d8f462ee",
+  "btbn_commit": "e88e49f624457c455700b058f0a84ca87d499cc2",
+  "updated": "2026-10-03"
+}

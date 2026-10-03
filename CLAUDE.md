@@ -1,0 +1,63 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+HCI research tool: a Go CLI that converts audio *drive signals*, made for a 2-channel audio-amplifier muscle-stim box (L = channel A, R = channel B, two electrodes per channel), into a restim funscript set. restim then drives a FOC-Stim v4. The goal is a similar *electrical* stimulus, not similar sound. Treat the audio as amplifier voltage, never as something meant to be heard.
+
+## Commands
+
+```sh
+go build -o bin/ .                      # main.go at repo root -> bin/stimconv.exe (no args = GUI, `cli` = CLI)
+go test ./...
+go test ./internal/mapping -run TestAutoBlendsMono -v   # single test
+go vet ./...
+bin/stimconv.exe cli --stats --dump-features f.csv reference/audio/sample_stayh.mp3
+```
+
+- ffmpeg is required for MPEG Layer III and other non-native formats. It is searched in this order: `--ffmpeg`, `$STIMCONV_FFMPEG`, `libs/ffmpeg/bin` (next to the exe, one level above it, or in the working directory), `PATH`. `libs/` and `bin/` are gitignored.
+- Bundled FFmpeg: `ffmpeg.json` pins a BtbN LGPL build (tag, zip, SHA-256, FFmpeg and FFmpeg-Builds commits). `go run ./tools/ffmpeg fetch|update|show` and `go run ./tools/release` (Windows zip in `dist/`). Keep it LGPL-only and read `docs/FFMPEG.md` before changing the license setup. ffmpeg's stderr goes to a buffer, never our stderr, because the GUI's freed console makes that handle invalid on Windows.
+- Decoder debug hook: `STIMCONV_DUMP='<in>|<out.f32>' go test ./internal/decode -run Dump` writes 10 s of raw float32 PCM. Add `STIMCONV_SKIP=1` to skip the first 100 s. Use it to diff against a reference decoder (PyAV/libavcodec).
+- `reference/FOC-Stim` and `reference/restim` are git submodules (the read-only targets the output must match). `reference/audio` holds the sample tracks, and `reference/original_device` the original hardware schematic.
+
+## Architecture
+
+The pipeline is in `internal/pipeline` (`Convert`), shared by the CLI (`main.go`, `cli` subcommand) and the GUI: decode → analysis.Measure (streaming) → analysis.Derive (offline) → mapping.Map → funscript write.
+
+- **gui**: gogpu/ui single window (input → options → output). Option controls are generated from `config.Options` (labels, help, groups, Advanced/expert flag, `OnlyIf` visibility). Widgets are touched only on the UI thread: goroutines (pipeline runs, zenity file dialogs) hand work back with `ui.post`, drained in gogpu's `OnUpdate`. Structural changes re-create the tree via `rebuild`. gogpu/ui text widgets neither wrap nor honour `\n`, so multi-line or dynamic text uses `wrapLabel` (`wraptext.go`): a column of one-line rows wrapped at spaces to the width it is laid out at. Containers cache child sizes and function-backed text has no signal, so changes become visible only through `ui.relayout` (run after every `post` batch, by `logf` and on resize), which clears layout caches and marks redraw across the tree. `go test ./internal/gui` renders it headlessly (`STIMCONV_SHOT=<dir>` keeps PNGs). The `gg/gpu` blank import lives in `main.go` because it breaks the offscreen renderer in tests. The gogpu module versions are pinned to the ones gogpu/ui's go.mod requires, since mixed `@latest` versions don't compile. Under WSL the GUI drops `WAYLAND_DISPLAY` so gogpu uses XWayland: WSLg lacks Wayland fractional scaling, so the Wayland backend's scale override clips the window. The HiDPI scale then comes from `Xft.dpi`.
+- **console channels**: GUI log entries are info, warning or error (`loglevel.go`); pipeline lines are classified by their `warning:`/`error:` prefix. `consoleSymbols` returns the tier `consoleTier` (emoji → `● ⚠ ✗` → `[info]` tags). `TestSymbolTiers` checks it is the first tier the UI font draws, by rendering offscreen and comparing with unassigned U+0378, which draws nothing. Don't use U+E000: Inter has a glyph there. **Never render offscreen in the app** (or link `gogpu/ui/offscreen` into it): that broke all text in the GPU window on Windows. Inter has no emoji and no box-drawing characters (`─`), so avoid those in UI text. Copy log uses the text tags.
+- **settings report** (`pipeline/readme.go`): every non-dry run writes `README.md` (default output folder) or `<input name>.md` (chosen folder). It holds the original file and path, the source/track, the preset, and every `config.Options` setting with its value and whether it is the default ("(not used)" when `OnlyIf` is false). It also lists the files written, warnings and the restim hints.
+- **batch (GUI only)**: selecting or dropping several files sets `ui.inputs`. `startOrCancel` then runs `pipeline.Convert` per file in one goroutine. Each file uses its default audio track and its own default output folder; failures don't stop the batch, and Cancel skips the rest. `selGen` discards probe results from an older selection. The CLI stays single-file.
+- **about/credits**: `assets.go` embeds the UI icons from `assets/` (`copy`/`trash` PNGs plus their Flaticon attribution `.txt`, which Help → About shows). About is a full-window page (`ui.about` + `rebuild`) because gogpu/ui's `dialog` sizes itself without its content and neither lays it out nor routes events to it. `internal/gui/licenses/` holds the license texts of every linked module, the Inter font gogpu/ui embeds, and restim. When dependencies change, update those files and `moduleCredits` (`go version -m bin/stimconv` lists what is linked; a test checks each credit has a text).
+- **app icon**: drawn by `tools/icon` into `assets/icon.{png,ico}`; `rsrc` puts the `.ico` into `rsrc_windows_amd64.syso` (committed, linked automatically into Windows builds). Regenerate both with `go generate .`. On Windows, gogpu ignores `Config.Icon`, so `setWindowIcon` sends `WM_SETICON` with resource ID 1.
+- **presets**: named configs as JSON under `os.UserConfigDir()/stimconv/presets`. `[default]` is a read-only pseudo preset. Names must match `[A-Za-z0-9_-]{1,64}`; Windows device names and `default` are refused (`presets.ValidateName`), because names become folder names. The default output folder is `pipeline.DefaultOutDir`, i.e. `<input name without extension>.<preset>` next to the input.
+- **decode**: sniffs the format from header bytes, not the extension.
+  - Some `.mp3` stim tracks are really MPEG Layer II. `mp2.go` is a pure-Go Layer II decoder, verified at 83 dB SNR against libavcodec.
+  - Layer III goes to ffmpeg by default. go-mp3 (`--native-mp3`) produced a corrupted waveform on short-block-heavy MPEG-2 files, so it is opt-in only.
+  - Containers (mkv, mp4, …) go through ffmpeg. `decode.Probe` lists audio tracks by parsing `ffmpeg -hide_banner -i` stderr (ffprobe isn't bundled). `Options.AudioTrack` is 1-based, with 0 = the default-flagged track. The decoder always passes an explicit `-map 0:a:N`. Tracks with more than 2 channels keep channels 0/1 via `pan` instead of `-ac 2`, because a downmix would blend A and B.
+  - Every format is normalised to an interleaved stereo float32 `Source`.
+- **circuit**: a trapezoidal-integrated model of the original box. Audio → TPA3116 (12 V) → 3.9 Ω → 70 V line transformer (n ≈ 35) → skin R + R‖C, all referred to the primary side. Analysis therefore runs on estimated electrode *current*.
+- **analysis**: the per-sample streaming stage keeps memory flat for hour-long files. It produces 1 kHz peak buckets, 100 Hz half-cycle carrier/form-factor values, and 100 Hz L/R covariance.
+  - `Derive` splits the envelope at `mod_split_hz` into slow S (level/position) and fast F = E/S (rhythm).
+  - Rhythm (rate/duty/attack/jitter) comes from autocorrelation of F at 5 Hz frames. The maximum lag is tied to the split window.
+- **content check** (`analysis/classify.go`): before conversion, the first 90 s are sampled every 0.5 s with a 4096-point FFT. A frame looks like a drive signal when under 5% of its energy is below 150 Hz and over 60% sits in the two strongest ±60 Hz peaks. If fewer than 60% of frames look like that, the pipeline (and the GUI, on file selection or track change) warns that the input may be music or speech. It only warns, never blocks. A pure tone without bass (whistling, solo flute) can pass as stim. Thresholds were calibrated on the samples and on synthetic music, speech and noise in `classify_test.go`.
+- **mapping**: two passes.
+  - Pass 1 computes per-channel `chanState` and A/B independence. In `auto` overlap mode the independence flag is smoothed by a 1 s majority vote.
+  - Pass 2 renders shared axes. FOC-Stim has **one** carrier and **one** pulse train for all electrodes, so A/B conflicts are resolved by the strategies in `config.Config` (topology/overlap/params/rhythm/ifc/intensity).
+  - `dual` writes e1–e4 (A = e1/e2, B = e3/e4). `joined` (commons tied) writes alpha/beta via `threephase.Inverse`.
+- **physio**: the strength–duration effective intensity, kept exactly consistent with restim's `TauCalibration` (a test enforces this), so restim compensates for carrier changes. Also the interferential beat and the fusion-frequency rule.
+- **config**: every knob in one JSON-serialisable struct (`--config` / `--emit-config`). Flags override the file. `options.go` describes every field for the GUI, and a test enforces full coverage, so a new Config field needs an Option entry. `FOCLimits` holds the FOC-Stim v4 axis limits.
+
+## Constraints that come from the reference code
+
+- Verify FOC-Stim behaviour in the v4 code (`main_focstim_v4.cpp`, `config_g473re_focstim_v4.h`, `signals/fourphase_*.cpp`), not in `docs/`, which may be stale. Limits: carrier 300–2000 Hz, pulse rate 1–100, width 3–20 cycles (and ≤ 35 ms), rise 2–10, 0.2 A, 1100 µV·s.
+- In 4-phase, e1–e4 is a *position*. It is constrained to max = 1 with the three smallest summing to ≥ 1, then intensity-normalised, so loudness belongs only in `volume`. Pairs share a split point: (1,1,0,0) keeps current inside pair A, while (1,1,1,1) also sends current across the pairs.
+- FOC-Stim drives each pulse with open-loop voltages computed from a learned impedance model. Abrupt starts (short rise), low carriers and pair switching raise the risk of transformer saturation, which trips the `OUTPUT_OVER_CURRENT` e-stop. Its 4-phase volt-seconds guard checks only electrodes 1–3.
+- restim maps funscript pos 0–100 linearly onto its funscript-kit range per axis (`qt_ui/models/funscript_kit.py`). Output written with `--range` must be matched by the same ranges in restim, or the values are misread.
+- restim sends axis updates every ~16 ms as 30 ms `move_to` ramps, so funscript changes faster than ~30–45 ms are smeared. This is why `--mux-hz` stays ≤ 4.
+- `joined` maps the tied common to restim's neutral electrode: L ≡ R gives α = +1, and L ≡ −R gives α = −1.
+
+## Tests
+
+Tests use synthetic signals modelled on the observed sample segments (650 Hz square with 20 Hz bursts, 800/900 Hz crossfade, 2.4 kHz AM). `threephase` and `physio` tests use vectors and formulas taken from restim's Python. Tests that need sample files skip when `reference/audio` is absent.

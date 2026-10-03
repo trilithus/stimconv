@@ -1,0 +1,11 @@
+Parts:
+1. "US TPA3116 Digital Power Amplifier Board 2*50W DC24V Two-Channel Stereo Digital"
+2. Speco T7010 x2
+3. 3.9 ohm 10W resistor (3 pieces)
+4. UL Listed 12V 3A 36W AC Adapter Power Supply
+5. 20 Pairs 2mm Gold-Plated Bullet Connectors
+
+Alternative parts:
+* TPA3116D2 2x50W Class D Stereo Amplifier Board with Volume Control
+* 70V 10W Speaker Line Matching Transformer x2
+* 4 Ohm 10W Resistor Wire-Wound 5% Tolerance.

@@ -1,0 +1,6 @@
+[submodule "reference/FOC-Stim"]
+	path = reference/FOC-Stim
+	url = https://github.com/diglet48/FOC-Stim.git
+[submodule "reference/restim"]
+	path = reference/restim
+	url = https://github.com/diglet48/restim.git

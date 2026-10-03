@@ -1,0 +1,8 @@
+.claude/
+/stimconv
+/stimconv.exe
+*.funscript
+/libs/
+/bin/
+/.cache/
+/dist/

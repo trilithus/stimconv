@@ -1,0 +1,216 @@
+// Package pipeline runs one conversion (decode → measure → derive → map →
+// write) so the CLI and the GUI share exactly the same code path.
+package pipeline
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/trilithus/stimconv/internal/analysis"
+	"github.com/trilithus/stimconv/internal/config"
+	"github.com/trilithus/stimconv/internal/decode"
+	"github.com/trilithus/stimconv/internal/funscript"
+	"github.com/trilithus/stimconv/internal/mapping"
+)
+
+// Options are the per-run settings that are not part of config.Config.
+type Options struct {
+	Input     string
+	OutDir    string // default: DefaultOutDir(Input, Preset)
+	Preset    string // names the default output folder; "" = "default"
+	DumpCSV   string // per-hop features CSV, empty = off
+	DryRun    bool   // analyse only, write no funscripts
+	Stats     bool   // print per-axis statistics
+	NativeMP3 bool   // decode Layer III with go-mp3 instead of ffmpeg
+	// AudioTrack picks an audio stream in video/container files, numbered
+	// from 1 (decode.Track.Index+1); 0 uses the default track.
+	AudioTrack int
+}
+
+// DefaultOutDir is the output folder used when none is given: a folder next
+// to the input named after the input file (without extension) and the
+// preset, e.g. "track.default". preset must already be a safe folder name.
+func DefaultOutDir(input, preset string) string {
+	if preset == "" {
+		preset = "default"
+	}
+	base := strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
+	return filepath.Join(filepath.Dir(input), base+"."+preset)
+}
+
+// CheckSeconds is how much of the input the content check looks at.
+const CheckSeconds = 90
+
+// Result summarises a finished run.
+type Result struct {
+	OutDir string
+	Files  []string // funscripts written (empty on a dry run)
+	Hints  string   // restim settings the output depends on
+}
+
+// Convert runs the full conversion and writes progress to log. ctx is
+// checked between stages.
+func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (Result, error) {
+	var out Result
+	if err := cfg.Validate(); err != nil {
+		return out, err
+	}
+	if err := ctx.Err(); err != nil {
+		return out, err
+	}
+	in := o.Input
+	start := time.Now()
+	// quick content check of the first 90 s before the full pass
+	if c, err := analysis.CheckFile(in, decode.Options{NativeMP3: o.NativeMP3, AudioTrack: o.AudioTrack}, CheckSeconds); err == nil && c.Kind != analysis.KindStim {
+		fmt.Fprintln(log, "warning:", c)
+	}
+	src, format, err := decode.Open(in, decode.Options{NativeMP3: o.NativeMP3, AudioTrack: o.AudioTrack})
+	if err != nil {
+		return out, err
+	}
+	what := string(format)
+	if format == decode.FormatUnknown { // container decoded by ffmpeg
+		if info, err := decode.Probe(in); err == nil && len(info.Tracks) > 0 {
+			i := o.AudioTrack - 1
+			if i < 0 {
+				i = decode.DefaultTrack(info.Tracks)
+			}
+			if i < len(info.Tracks) {
+				t := info.Tracks[i]
+				what = fmt.Sprintf("%s, audio track %d of %d (%s)", info.Container, i+1, len(info.Tracks), t)
+				if t.Channels > 2 {
+					fmt.Fprintf(log, "warning: track %d has %d channels; using the first two as L (A) and R (B)\n", i+1, t.Channels)
+				}
+			}
+		}
+	}
+	raw, err := analysis.Measure(src, cfg.Circuit)
+	if cerr := src.Close(); err == nil {
+		err = cerr // e.g. ffmpeg exited with an error
+	}
+	if err != nil {
+		return out, err
+	}
+	if err := ctx.Err(); err != nil {
+		return out, err
+	}
+	feat := analysis.Derive(raw, cfg.ModSplitHz, cfg.SilenceDB)
+	if o.DumpCSV != "" {
+		if err := feat.WriteCSV(o.DumpCSV); err != nil {
+			return out, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return out, err
+	}
+	res, err := mapping.Map(feat, cfg)
+	if err != nil {
+		return out, err
+	}
+	if err := ctx.Err(); err != nil {
+		return out, err
+	}
+	fmt.Fprintf(log, "%s: %s, %d Hz, %.1f s, analysed in %.1fs (topology %s)\n",
+		filepath.Base(in), what, raw.SampleRate, raw.Duration, time.Since(start).Seconds(), cfg.Topology)
+
+	dir := o.OutDir
+	if dir == "" {
+		dir = DefaultOutDir(in, o.Preset)
+	}
+	out.OutDir = dir
+	if !o.DryRun {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return out, err
+		}
+	}
+	base := strings.TrimSuffix(filepath.Base(in), filepath.Ext(in))
+	for _, a := range res.Axes {
+		acts := a.Actions(cfg.Epsilon)
+		path := filepath.Join(dir, base+"."+a.Name+".funscript")
+		if !o.DryRun {
+			if err := funscript.Write(path, acts); err != nil {
+				return out, err
+			}
+			out.Files = append(out.Files, path)
+		}
+		if o.Stats {
+			printStats(log, a, len(acts))
+		}
+	}
+	if o.Stats {
+		var modes []string
+		for k, v := range res.ModeTime {
+			if v > 0 {
+				modes = append(modes, fmt.Sprintf("%s %.0f%%", k, 100*v))
+			}
+		}
+		sort.Strings(modes)
+		fmt.Fprintf(log, "rendering modes: %s\n", strings.Join(modes, ", "))
+		if cfg.Topology == "dual" {
+			fmt.Fprintf(log, "A/B multiplexed: %.0f%% of the time (overlap %s)\n", 100*res.Multiplexed, cfg.Overlap)
+		}
+	}
+	for _, w := range res.Warnings {
+		fmt.Fprintln(log, "warning:", w)
+	}
+	out.Hints = RestimHints(cfg)
+	if !o.DryRun {
+		readme := filepath.Join(dir, ReadmeName(in, o.OutDir != ""))
+		preset := o.Preset
+		if preset == "" {
+			preset = "default"
+		}
+		if err := writeReadme(readme, cfg, readmeInfo{
+			Input: in, Source: what, Preset: preset, Files: out.Files, Warnings: res.Warnings, Hints: out.Hints,
+		}); err != nil {
+			return out, err
+		}
+		fmt.Fprintf(log, "wrote %d funscripts and %s to %s\n", len(res.Axes), filepath.Base(readme), dir)
+	}
+	fmt.Fprintln(log, out.Hints)
+	return out, nil
+}
+
+func printStats(log io.Writer, a *funscript.Axis, points int) {
+	lo, hi, sum := math.Inf(1), math.Inf(-1), 0.0
+	for _, v := range a.Values {
+		lo, hi = math.Min(lo, v), math.Max(hi, v)
+		sum += v
+	}
+	fmt.Fprintf(log, "  %-22s min %9.3f  mean %9.3f  max %9.3f  (%d points, range %g..%g)\n",
+		a.Name, lo, sum/float64(len(a.Values)), hi, points, a.Min, a.Max)
+}
+
+// RestimHints describes the restim settings the output depends on.
+func RestimHints(cfg config.Config) string {
+	mode := "FOC-Stim 4-phase"
+	if cfg.Topology == "joined" {
+		mode = "FOC-Stim 3-phase"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "restim: use device %s; ", mode)
+	if cfg.Intensity == "effective" {
+		fmt.Fprintf(&b, "volume is strength-duration matched, so keep restim's tau at %g us and its maximum carrier at %g Hz; ", cfg.TauUS, cfg.RefCarrierHz)
+	}
+	def := config.Default().Ranges
+	var custom []string
+	for k, r := range cfg.Ranges {
+		if d, ok := def[k]; !ok || d != r {
+			custom = append(custom, fmt.Sprintf("%s %g..%g", k, r.Min, r.Max))
+		}
+	}
+	sort.Strings(custom)
+	if len(custom) > 0 {
+		fmt.Fprintf(&b, "set these funscript kit ranges: %s", strings.Join(custom, ", "))
+	} else {
+		b.WriteString("funscript kit ranges: restim defaults")
+	}
+	return b.String()
+}
