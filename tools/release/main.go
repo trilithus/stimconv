@@ -142,7 +142,7 @@ arising from the software, its use, or the use of the files it produces.
 	return nil
 }
 
-// tarDir writes a gzipped tar with a single top-level "stimconv/".
+// tarDir writes a gzipped tar with the contents of dir at its root.
 func tarDir(dir, out string) error {
 	f, err := os.Create(out)
 	if err != nil {
@@ -151,12 +151,15 @@ func tarDir(dir, out string) error {
 	defer f.Close()
 	gz := gzip.NewWriter(f)
 	tw := tar.NewWriter(gz)
-	base := filepath.Dir(dir)
+	base := dir
 	err = filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		rel, _ := filepath.Rel(base, p)
+		if rel == "." {
+			return nil
+		}
 		h, err := tar.FileInfoHeader(info, "")
 		if err != nil {
 			return err
@@ -190,7 +193,7 @@ func tarDir(dir, out string) error {
 	return gz.Close()
 }
 
-// zipDir zips dir so the archive contains a single top-level "stimconv/".
+// zipDir zips the contents of dir at the archive root.
 func zipDir(dir, out string) error {
 	f, err := os.Create(out)
 	if err != nil {
@@ -198,7 +201,7 @@ func zipDir(dir, out string) error {
 	}
 	defer f.Close()
 	zw := zip.NewWriter(f)
-	base := filepath.Dir(dir)
+	base := dir
 	err = filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return err
