@@ -1,11 +1,17 @@
-// Command release builds the Windows release zip: stimconv.exe plus the
-// pinned FFmpeg build with its license and notice (docs/FFMPEG.md).
+// Command release builds a release package. For Windows that is a zip with
+// stimconv.exe plus the pinned FFmpeg build with its license and notice
+// (docs/FFMPEG.md). For Linux it is a tar.gz with the binary only: ffmpeg
+// comes from the system PATH.
 //
 //	go run ./tools/release            -> dist/stimconv-<version>-win64.zip
+//	go run ./tools/release -os linux  -> dist/stimconv-<version>-linux-amd64.tar.gz
 package main
 
 import (
+	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -24,12 +30,15 @@ func main() {
 }
 
 func run() error {
-	pin, err := ffmpegpin.Load(ffmpegpin.File)
-	if err != nil {
-		return fmt.Errorf("%s: %w (run from the repository root)", ffmpegpin.File, err)
+	goos := flag.String("os", "windows", "target: windows or linux")
+	flag.Parse()
+	if *goos != "windows" && *goos != "linux" {
+		return fmt.Errorf("unsupported -os %q", *goos)
 	}
 	version := "dev"
-	if out, err := exec.Command("git", "describe", "--tags", "--always", "--dirty").Output(); err == nil {
+	if v := os.Getenv("STIMCONV_VERSION"); v != "" {
+		version = v
+	} else if out, err := exec.Command("git", "describe", "--tags", "--always", "--dirty").Output(); err == nil {
 		version = strings.TrimSpace(string(out))
 	}
 	stage := filepath.Join("dist", "stimconv")
@@ -40,11 +49,19 @@ func run() error {
 		return err
 	}
 
-	build := exec.Command("go", "build", "-trimpath", "-o", filepath.Join(stage, "stimconv.exe"), ".")
-	build.Env = append(os.Environ(), "GOOS=windows", "GOARCH=amd64", "CGO_ENABLED=0")
-	build.Stdout, build.Stderr = os.Stdout, os.Stderr
-	if err := build.Run(); err != nil {
-		return fmt.Errorf("go build: %w", err)
+	if err := writeLicense(stage); err != nil {
+		return err
+	}
+	if *goos == "linux" {
+		return releaseLinux(stage, version)
+	}
+
+	pin, err := ffmpegpin.Load(ffmpegpin.File)
+	if err != nil {
+		return fmt.Errorf("%s: %w (run from the repository root)", ffmpegpin.File, err)
+	}
+	if err := goBuild("windows", filepath.Join(stage, "stimconv.exe")); err != nil {
+		return err
 	}
 
 	zipPath, err := ffmpegpin.Download(pin, filepath.Join(".cache", "ffmpeg"))
@@ -71,20 +88,106 @@ arising from the software, its use, or the use of the files it produces.
 		return err
 	}
 
-	license, err := os.ReadFile("LICENSE")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(stage, "LICENSE.txt"), license, 0o644); err != nil {
-		return err
-	}
-
 	out := filepath.Join("dist", "stimconv-"+version+"-win64.zip")
 	if err := zipDir(stage, out); err != nil {
 		return err
 	}
 	fmt.Println("wrote", out)
 	return nil
+}
+
+func goBuild(goos, out string) error {
+	build := exec.Command("go", "build", "-trimpath", "-o", out, ".")
+	build.Env = append(os.Environ(), "GOOS="+goos, "GOARCH=amd64", "CGO_ENABLED=0")
+	build.Stdout, build.Stderr = os.Stdout, os.Stderr
+	if err := build.Run(); err != nil {
+		return fmt.Errorf("go build: %w", err)
+	}
+	return nil
+}
+
+func writeLicense(stage string) error {
+	license, err := os.ReadFile("LICENSE")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(stage, "LICENSE.txt"), license, 0o644)
+}
+
+func releaseLinux(stage, version string) error {
+	if err := goBuild("linux", filepath.Join(stage, "stimconv")); err != nil {
+		return err
+	}
+	readme := fmt.Sprintf(`stimconv %s
+
+Run ./stimconv to open the interface, or "./stimconv cli -h" for the
+command line.
+
+FFmpeg is not bundled: install it from your distribution (it must be on
+PATH, or pass --ffmpeg / set STIMCONV_FFMPEG). It is needed to decode MP3
+and other formats. See Help > About in stimconv for all attributions.
+
+stimconv itself is MIT No Attribution (see LICENSE.txt). It is provided as is,
+without warranty, and its authors accept no liability for any harm or damage
+arising from the software, its use, or the use of the files it produces.
+`, version)
+	if err := os.WriteFile(filepath.Join(stage, "README.txt"), []byte(readme), 0o644); err != nil {
+		return err
+	}
+	out := filepath.Join("dist", "stimconv-"+version+"-linux-amd64.tar.gz")
+	if err := tarDir(stage, out); err != nil {
+		return err
+	}
+	fmt.Println("wrote", out)
+	return nil
+}
+
+// tarDir writes a gzipped tar with a single top-level "stimconv/".
+func tarDir(dir, out string) error {
+	f, err := os.Create(out)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz := gzip.NewWriter(f)
+	tw := tar.NewWriter(gz)
+	base := filepath.Dir(dir)
+	err = filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(base, p)
+		h, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+		h.Name = filepath.ToSlash(rel)
+		h.Uname, h.Gname, h.Uid, h.Gid = "", "", 0, 0
+		h.Mode = 0o644
+		if info.IsDir() {
+			h.Name += "/"
+			h.Mode = 0o755
+		} else if filepath.Base(p) == "stimconv" {
+			h.Mode = 0o755
+		}
+		if err := tw.WriteHeader(h); err != nil || info.IsDir() {
+			return err
+		}
+		r, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		_, err = io.Copy(tw, r)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	return gz.Close()
 }
 
 // zipDir zips dir so the archive contains a single top-level "stimconv/".
