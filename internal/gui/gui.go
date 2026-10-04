@@ -61,7 +61,7 @@ type ui struct {
 func Run(icons fs.FS, appIcon image.Image) error {
 	m3 := material3.New(widget.Hex(0x3F5AA8))
 	preferX11OnWSL()
-	g := gogpu.NewApp(gogpu.DefaultConfig().WithTitle("stimconv").WithSize(winW, winH).WithIcon(appIcon))
+	g := gogpu.NewApp(graphicsAPI(gogpu.DefaultConfig().WithTitle("stimconv").WithSize(winW, winH).WithIcon(appIcon)))
 	a := app.New(
 		app.WithWindowProvider(g),
 		app.WithPlatformProvider(g),
