@@ -305,7 +305,9 @@ func (u *ui) menuBar() widget.Widget {
 	return menu.NewBar([]menu.TopMenu{
 		menu.BarMenu("File",
 			menu.Item("Open audio or video…", "", u.browseInput),
+			menu.Sep(),
 			menu.Item("Export config…", "", u.exportConfig),
+			menu.Item("Open Preset Folder", "", u.openPresetFolder),
 			menu.Sep(),
 			menu.Item("Quit", "", func() {
 				if u.gapp != nil {

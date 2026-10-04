@@ -31,6 +31,15 @@ func dir() (string, error) {
 	return filepath.Join(d, "stimconv", "presets"), nil
 }
 
+// Folder returns the preset directory, creating it if needed.
+func Folder() (string, error) {
+	d, err := dir()
+	if err != nil {
+		return "", err
+	}
+	return d, os.MkdirAll(d, 0o755)
+}
+
 // DefaultName is the name the [default] pseudo preset uses in output paths.
 const DefaultName = "default"
 

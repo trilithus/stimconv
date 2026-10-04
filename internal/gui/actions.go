@@ -324,7 +324,9 @@ func (u *ui) loadPreset(name string) {
 		return
 	}
 	u.cfg, u.preset = c, name
-	if name != presets.Default {
+	if name == presets.Default {
+		u.presetName.Set("")
+	} else {
 		u.presetName.Set(name)
 	}
 	u.validate()
