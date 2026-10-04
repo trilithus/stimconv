@@ -30,6 +30,7 @@ var (
 	colPanel   = widget.RGBA8(255, 255, 255, 255)
 	colBack    = widget.RGBA8(238, 240, 245, 255)
 	colConsole = widget.RGBA8(24, 26, 32, 255)
+	colStatus  = widget.RGBA8(222, 226, 234, 255)
 	colLog     = widget.RGBA8(215, 220, 228, 255)
 	colLogWarn = widget.RGBA8(255, 190, 90, 255)
 	colLogErr  = widget.RGBA8(255, 120, 120, 255)
@@ -60,12 +61,24 @@ func (u *ui) build() widget.Widget {
 	}
 	return primitives.VBox(
 		u.menuBar(),
-		primitives.VBox(
+		primitives.Expanded(primitives.VBox(
 			u.inputSection(),
 			primitives.Expanded(u.optionsSection()),
 			u.outputSection(),
-		).Padding(12).Gap(10),
+		).Padding(12).Gap(10)),
+		u.statusBar(),
 	).Background(colBack)
+}
+
+// statusBar is the bottom line of the window; it wraps long messages such
+// as output paths instead of widening the layout.
+func (u *ui) statusBar() widget.Widget {
+	return primitives.HBox(primitives.Expanded(newWrapLabel(func() string {
+		if s := u.status.Get(); s != "" {
+			return s
+		}
+		return "Ready"
+	}, 12, colText, 2))).PaddingXY(12, 4).Background(colStatus)
 }
 
 // ---- input ----
@@ -271,20 +284,33 @@ func (u *ui) outputSection() widget.Widget {
 			checkbox.New(checkbox.Label("Dry run (analyse only)"), checkbox.CheckedSignal(u.dryRun)),
 			btn("Export config…", button.TextOnly, u.exportConfig),
 			primitives.Expanded(primitives.Box()),
-			primitives.Text("").ContentSignal(u.status).FontSize(13).Color(colMuted),
 			button.New(button.TextReadonlySignal(state.NewComputed(startLabel, u.running)), button.OnClick(u.startOrCancel),
 				button.DisabledReadonlySignal(state.NewComputed(func() bool {
 					return !u.running.Get() && (u.input.Get() == "" || u.optErr.Get() != "")
 				}, u.running, u.input, u.optErr))),
 		).Gap(12).CrossAlign(primitives.CrossAxisCenter),
+		u.logSection(),
+	)
+}
+
+// logSection is the collapsible log console with its Clear/Copy buttons.
+func (u *ui) logSection() widget.Widget {
+	toggle := func(label string, open bool) widget.Widget {
+		return btn(label, button.TextOnly, func() { u.post(func() { u.logOpen = open; u.rebuild() }) })
+	}
+	if !u.logOpen {
+		return primitives.HBox(toggle("Show log", true), primitives.Expanded(primitives.Box()))
+	}
+	return primitives.VBox(
+		primitives.HBox(toggle("Hide log", false), primitives.Expanded(primitives.Box())),
 		primitives.HBox(
 			primitives.Expanded(primitives.Box(scrollview.New(u.console(), scrollview.ScrollYSignal(u.logScroll))).Height(150).Padding(8).Background(colConsole).Rounded(6)),
 			primitives.VBox(
-				newIconButton(loadIcon(u.icons, "trash.png", 20), "Clear", 32, u.clearLog),
-				newIconButton(loadIcon(u.icons, "copy.png", 20), "Copy", 32, u.copyLog),
+				newIconButton(u.icon("trash.png"), "Clear", 32, u.clearLog),
+				newIconButton(u.icon("copy.png"), "Copy", 32, u.copyLog),
 			).Gap(6),
 		).Gap(8),
-	)
+	).Gap(4)
 }
 
 // console is the log view; it follows the tail whenever the row count

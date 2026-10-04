@@ -3,8 +3,8 @@
 // (docs/FFMPEG.md). For Linux it is a tar.gz with the binary only: ffmpeg
 // comes from the system PATH.
 //
-//	go run ./tools/release              -> dist/stimconv-<version>-win64.zip
-//	go run ./tools/release -arch arm64  -> dist/stimconv-<version>-win-arm64.zip
+//	go run ./tools/release              -> dist/stimconv-<version>-windows-x64.zip
+//	go run ./tools/release -arch arm64  -> dist/stimconv-<version>-windows-arm64.zip
 //	go run ./tools/release -os linux  -> dist/stimconv-<version>-linux-amd64.tar.gz
 package main
 
@@ -99,9 +99,9 @@ arising from the software, its use, or the use of the files it produces.
 		return err
 	}
 
-	suffix := "-win64.zip"
+	suffix := "-windows-x64.zip"
 	if *arch == "arm64" {
-		suffix = "-win-arm64.zip"
+		suffix = "-windows-arm64.zip"
 	}
 	out := filepath.Join("dist", "stimconv-"+version+suffix)
 	if err := zipDir(stage, out); err != nil {

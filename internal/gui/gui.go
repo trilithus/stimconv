@@ -28,11 +28,16 @@ const winW, winH = 960, 860
 type ui struct {
 	gapp  *gogpu.App
 	icons fs.FS // icon PNGs and their attribution .txt files
-	app   *app.App
+	// iconCache keeps decoded icons across rebuilds: the renderer caches
+	// textures per image, and a fresh image each rebuild drew blank until hover.
+	iconCache map[string]image.Image
+	app       *app.App
 
 	cfg    config.Config
 	expert bool
-	about  bool // About page shown instead of the main screen
+	// logOpen shows the log console; it opens on Start.
+	logOpen bool
+	about   bool // About page shown instead of the main screen
 
 	tracks []decode.Track // audio tracks of the input when it has several
 	track  int            // selected track, 1-based; 0 = default

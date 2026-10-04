@@ -28,6 +28,7 @@ func findText(w widget.Widget, want string) *primitives.TextWidget {
 func TestLiveUpdates(t *testing.T) {
 	a := app.New()
 	u := newUI(nil, a)
+	u.logOpen = true // collapsed by default
 	a.SetRoot(u.build())
 	a.Frame()
 

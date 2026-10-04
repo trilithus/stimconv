@@ -374,6 +374,10 @@ func (u *ui) startOrCancel() {
 		}
 		return
 	}
+	if !u.logOpen {
+		u.logOpen = true
+		u.rebuild()
+	}
 	inputs := u.inputs
 	track := 0 // batch files use their default track
 	if len(inputs) == 0 {

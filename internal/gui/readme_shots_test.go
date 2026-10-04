@@ -39,6 +39,7 @@ func TestReadmeShots(t *testing.T) {
 	u := newShotUI()
 	u.input.Set("D:/stim/session_04.mp3")
 	u.info.Set("mpeg-layer3 · 22050 Hz · 104.4 s · 2.8 MB")
+	u.logOpen = true // Start opens the log
 	u.logf("session_04.mp3: mpeg-layer3, 22050 Hz, 104.4 s, analysed in 1.9s (topology dual)")
 	u.logf("%s", "warning: frequency: 67.9% of values outside the funscript range 500..1000 (data spans 660.5..2000); widen with --range frequency=500:2000 and set the same range in restim's funscript kit")
 	u.logf("wrote 10 funscripts and README.md to D:/stim/session_04.default")
@@ -50,6 +51,7 @@ func TestReadmeShots(t *testing.T) {
 	u.expert = true
 	u.input.Set("D:/stim/session_04.mp3")
 	u.info.Set("mpeg-layer3 · 22050 Hz · 104.4 s · 2.8 MB")
+	u.logOpen = true // Start opens the log
 	shot("expert", u, 1500)
 
 	// Video file with several audio tracks.

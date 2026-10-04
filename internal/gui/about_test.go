@@ -50,6 +50,7 @@ func TestClearButton(t *testing.T) {
 	a := app.New()
 	u := newUI(nil, a)
 	u.icons = os.DirFS("../../assets")
+	u.logOpen = true // collapsed by default
 	a.SetRoot(u.build())
 	u.logf("something")
 	a.Frame()
@@ -91,6 +92,7 @@ func TestShowAbout(t *testing.T) {
 	a := app.New()
 	u := newUI(nil, a)
 	u.icons = os.DirFS("../../assets")
+	u.logOpen = true // collapsed by default
 	a.SetRoot(u.build())
 	a.Frame()
 	u.showAbout()

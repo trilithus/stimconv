@@ -22,8 +22,8 @@ when FFmpeg is updated.
 | Show the pin and the notice that ships with it | `go run ./tools/ffmpeg show` |
 | Pin the newest build of the current branch | `go run ./tools/ffmpeg update` |
 | Switch to another FFmpeg release branch | `go run ./tools/ffmpeg update -branch 9.1` |
-| Build the release zip (`dist/stimconv-<version>-win64.zip`) | `go run ./tools/release` |
-| Build the Arm64 zip (`dist/stimconv-<version>-win-arm64.zip`) | `go run ./tools/release -arch arm64` |
+| Build the release zip (`dist/stimconv-<version>-windows-x64.zip`) | `go run ./tools/release` |
+| Build the Arm64 zip (`dist/stimconv-<version>-windows-arm64.zip`) | `go run ./tools/release -arch arm64` |
 
 Add `-arch arm64` to the `tools/ffmpeg` commands to work on the Arm64 pin.
 
