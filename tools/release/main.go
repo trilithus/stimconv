@@ -1,9 +1,10 @@
-// Command release builds a release package. For Windows that is a zip with
-// stimconv.exe plus the pinned FFmpeg build with its license and notice
+// Command release builds a release package. For Windows (x64 or Arm64) that
+// is a zip with stimconv.exe plus the pinned FFmpeg build with its license and notice
 // (docs/FFMPEG.md). For Linux it is a tar.gz with the binary only: ffmpeg
 // comes from the system PATH.
 //
-//	go run ./tools/release            -> dist/stimconv-<version>-win64.zip
+//	go run ./tools/release              -> dist/stimconv-<version>-win64.zip
+//	go run ./tools/release -arch arm64  -> dist/stimconv-<version>-win-arm64.zip
 //	go run ./tools/release -os linux  -> dist/stimconv-<version>-linux-amd64.tar.gz
 package main
 
@@ -31,9 +32,13 @@ func main() {
 
 func run() error {
 	goos := flag.String("os", "windows", "target: windows or linux")
+	arch := flag.String("arch", "amd64", "target architecture: amd64, or arm64 for Windows")
 	flag.Parse()
 	if *goos != "windows" && *goos != "linux" {
 		return fmt.Errorf("unsupported -os %q", *goos)
+	}
+	if *goos == "linux" && *arch != "amd64" {
+		return fmt.Errorf("-arch %s is only supported for -os windows", *arch)
 	}
 	version := "dev"
 	if v := os.Getenv("STIMCONV_VERSION"); v != "" {
@@ -56,11 +61,15 @@ func run() error {
 		return releaseLinux(stage, version)
 	}
 
-	pin, err := ffmpegpin.Load(ffmpegpin.File)
+	pinFile, err := ffmpegpin.FileFor(*arch)
 	if err != nil {
-		return fmt.Errorf("%s: %w (run from the repository root)", ffmpegpin.File, err)
+		return err
 	}
-	if err := goBuild("windows", filepath.Join(stage, "stimconv.exe")); err != nil {
+	pin, err := ffmpegpin.Load(pinFile)
+	if err != nil {
+		return fmt.Errorf("%s: %w (run from the repository root)", pinFile, err)
+	}
+	if err := goBuild("windows", *arch, filepath.Join(stage, "stimconv.exe")); err != nil {
 		return err
 	}
 
@@ -90,7 +99,11 @@ arising from the software, its use, or the use of the files it produces.
 		return err
 	}
 
-	out := filepath.Join("dist", "stimconv-"+version+"-win64.zip")
+	suffix := "-win64.zip"
+	if *arch == "arm64" {
+		suffix = "-win-arm64.zip"
+	}
+	out := filepath.Join("dist", "stimconv-"+version+suffix)
 	if err := zipDir(stage, out); err != nil {
 		return err
 	}
@@ -98,9 +111,9 @@ arising from the software, its use, or the use of the files it produces.
 	return nil
 }
 
-func goBuild(goos, out string) error {
+func goBuild(goos, arch, out string) error {
 	build := exec.Command("go", "build", "-trimpath", "-o", out, ".")
-	build.Env = append(os.Environ(), "GOOS="+goos, "GOARCH=amd64", "CGO_ENABLED=0")
+	build.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+arch, "CGO_ENABLED=0")
 	build.Stdout, build.Stderr = os.Stdout, os.Stderr
 	if err := build.Run(); err != nil {
 		return fmt.Errorf("go build: %w", err)
@@ -117,7 +130,7 @@ func writeLicense(stage string) error {
 }
 
 func releaseLinux(stage, version string) error {
-	if err := goBuild("linux", filepath.Join(stage, "stimconv")); err != nil {
+	if err := goBuild("linux", "amd64", filepath.Join(stage, "stimconv")); err != nil {
 		return err
 	}
 	readme := fmt.Sprintf(`stimconv %s

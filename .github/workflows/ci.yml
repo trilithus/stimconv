@@ -25,7 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [windows, linux]
+        include:
+          - { os: windows, arch: amd64, name: windows-x64 }
+          - { os: windows, arch: arm64, name: windows-arm64 }
+          - { os: linux, arch: amd64, name: linux-x64 }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,14 +40,14 @@ jobs:
         if: matrix.os == 'windows'
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-${{ hashFiles('ffmpeg.json') }}
+          key: ffmpeg-${{ matrix.arch }}-${{ hashFiles('ffmpeg*.json') }}
       - name: Build package
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then export STIMCONV_VERSION="$GITHUB_REF_NAME"; fi
-          go run ./tools/release -os ${{ matrix.os }}
+          go run ./tools/release -os ${{ matrix.os }} -arch ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
-          name: stimconv-${{ matrix.os }}
+          name: stimconv-${{ matrix.name }}
           path: dist/stimconv-*.*
           retention-days: 14
 

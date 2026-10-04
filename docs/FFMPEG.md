@@ -7,7 +7,9 @@ in `libs/ffmpeg/`, where stimconv finds it automatically.
 
 ## What is pinned
 
-`ffmpeg.json` (repository root) is the single source of truth: the BtbN
+`ffmpeg.json` (x64) and `ffmpeg-arm64.json` (Windows on Arm, BtbN's
+`winarm64-lgpl` variant) in the repository root are the single source of
+truth. Each holds the BtbN
 release tag, zip name, download URL, SHA-256, FFmpeg version and commit, and
 the FFmpeg-Builds commit the binary was built from. Nothing else needs editing
 when FFmpeg is updated.
@@ -21,6 +23,9 @@ when FFmpeg is updated.
 | Pin the newest build of the current branch | `go run ./tools/ffmpeg update` |
 | Switch to another FFmpeg release branch | `go run ./tools/ffmpeg update -branch 9.1` |
 | Build the release zip (`dist/stimconv-<version>-win64.zip`) | `go run ./tools/release` |
+| Build the Arm64 zip (`dist/stimconv-<version>-win-arm64.zip`) | `go run ./tools/release -arch arm64` |
+
+Add `-arch arm64` to the `tools/ffmpeg` commands to work on the Arm64 pin.
 
 Downloads are cached in `.cache/ffmpeg/` and verified against the pinned
 SHA-256. Set `GITHUB_TOKEN` if the GitHub API rate limit gets in the way.
@@ -31,8 +36,9 @@ SHA-256. Set `GITHUB_TOKEN` if the GitHub API rate limit gets in the way.
    release; branches are listed on the BtbN releases page as `nX.Y`).
 2. `go run ./tools/ffmpeg fetch`, then convert a Layer III file such as
    `reference/audio/sample_stayh.mp3` (GUI or `bin/stimconv.exe cli --dry-run …`).
-3. Commit `ffmpeg.json`.
-4. `go run ./tools/release` for a new zip.
+3. Repeat step 1 with `-arch arm64` so both pins stay on the same version.
+4. Commit `ffmpeg.json` and `ffmpeg-arm64.json`.
+5. `go run ./tools/release` (and `-arch arm64`) for new zips.
 
 BtbN deletes old autobuilds after a while. If `fetch` or `release` reports a
 404 for the pinned zip, that is expected: run step 1 to pin a current build.

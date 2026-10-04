@@ -1,6 +1,7 @@
 // Package ffmpegpin manages the pinned BtbN FFmpeg build that is shipped
 // next to stimconv.exe (see docs/FFMPEG.md). ffmpeg.json in the repository
-// root is the single source of truth.
+// (x64) and ffmpeg-arm64.json (Windows on Arm) in the repository root are the
+// single source of truth.
 package ffmpegpin
 
 import (
@@ -20,13 +21,33 @@ import (
 	"time"
 )
 
-// File is the pin file, relative to the repository root.
+// File is the x64 pin file, relative to the repository root. It is also the
+// name of the copy installed next to ffmpeg.exe, whatever the architecture.
 const File = "ffmpeg.json"
+
+// FileFor returns the pin file for a Windows GOARCH (amd64 or arm64).
+func FileFor(arch string) (string, error) {
+	switch arch {
+	case "amd64":
+		return File, nil
+	case "arm64":
+		return "ffmpeg-arm64.json", nil
+	}
+	return "", fmt.Errorf("no FFmpeg pin for GOARCH %q (amd64 or arm64)", arch)
+}
+
+// VariantFor returns the BtbN LGPL variant for a Windows GOARCH.
+func VariantFor(arch string) string {
+	if arch == "arm64" {
+		return "winarm64-lgpl"
+	}
+	return "win64-lgpl"
+}
 
 // Pin identifies one BtbN build exactly.
 type Pin struct {
 	Branch     string `json:"branch"`        // FFmpeg release branch, e.g. "9.0"
-	Variant    string `json:"variant"`       // BtbN variant; must stay LGPL ("win64-lgpl")
+	Variant    string `json:"variant"`       // BtbN variant; must stay LGPL ("win64-lgpl", "winarm64-lgpl")
 	Release    string `json:"release"`       // BtbN release tag (autobuild-YYYY-MM-DD-HH-MM)
 	Asset      string `json:"asset"`         // zip file name
 	URL        string `json:"url"`           // download URL
