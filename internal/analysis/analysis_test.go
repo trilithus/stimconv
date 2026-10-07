@@ -49,6 +49,30 @@ func analyse(t *testing.T, src *sliceSource, circuitOn bool) *Features {
 	return Derive(raw, 3, -40)
 }
 
+// A short burst of decoder garbage (a corrupt AAC frame) must not become the
+// track maximum and gate the real signal as silence.
+func TestCorruptBurstIsClipped(t *testing.T) {
+	src := synth(4, func(tm float64) (float64, float64) {
+		v := 0.5 * math.Sin(2*math.Pi*800*tm)
+		if tm > 2 && tm < 2.02 {
+			return v, 1500 * math.Sin(2*math.Pi*3000*tm)
+		}
+		return v, v
+	})
+	cc := config.Default().Circuit
+	raw, err := Measure(src, cc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw.Overload[1] == 0 || raw.Overload[0] != 0 || math.Abs(raw.OverloadAt-2) > 0.01 {
+		t.Errorf("overload = %v at %.3f s", raw.Overload, raw.OverloadAt)
+	}
+	f := Derive(raw, 3, -40)
+	if m := median(f.Ch[1].E, 500, 1500); m == 0 {
+		t.Error("signal before the burst was gated as silence")
+	}
+}
+
 func median(v []float32, from, to int) float64 {
 	var s []float64
 	for _, x := range v[from:to] {

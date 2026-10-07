@@ -114,6 +114,11 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 	if err != nil {
 		return out, err
 	}
+	if n := raw.Overload[0] + raw.Overload[1]; n > 0 {
+		res.Warnings = append(res.Warnings, fmt.Sprintf(
+			"%d samples far beyond full scale (first at %.2f s), likely a corrupt frame in the file; clipped to ±1 as the amplifier would",
+			n, raw.OverloadAt))
+	}
 	if err := ctx.Err(); err != nil {
 		return out, err
 	}

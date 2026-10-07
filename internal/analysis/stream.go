@@ -36,7 +36,16 @@ type Raw struct {
 	FormFactor [2][]float32 // mean|x| / peak over half-cycles
 	// HopRate, stereo covariance of the (current) waveforms
 	CLL, CLR, CRR []float32
+
+	// Samples far beyond full scale (|x| > OverloadLevel), e.g. a corrupt
+	// AAC frame, and when the first one occurred (s). They are clipped to
+	// ±1 like the amplifier's rails would, but are worth a warning.
+	Overload   [2]int
+	OverloadAt float64
 }
+
+// OverloadLevel is where a sample stops being ordinary codec overshoot.
+const OverloadLevel = 1.5
 
 type chanTracker struct {
 	sign       int
@@ -126,6 +135,22 @@ func Measure(src decode.Source, cc config.Circuit) (*Raw, error) {
 			var y [2]float64
 			for c := 0; c < 2; c++ {
 				x := float64(buf[2*k+c])
+				// the TPA3116 clips at its rails; unclipped garbage (up to
+				// ±1500 seen from a corrupt AAC frame) would otherwise set
+				// the track maximum and gate everything else as silence
+				if math.Abs(x) > OverloadLevel || math.IsNaN(x) {
+					if raw.Overload[0]+raw.Overload[1] == 0 {
+						raw.OverloadAt = float64(idx) / fsr
+					}
+					raw.Overload[c]++
+				}
+				if math.IsNaN(x) {
+					x = 0
+				} else if x > 1 {
+					x = 1
+				} else if x < -1 {
+					x = -1
+				}
 				if models[c] != nil {
 					y[c] = models[c].Step(x)
 				} else {
