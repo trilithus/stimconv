@@ -148,10 +148,14 @@ reference implementations (restim, FOC-Stim) and the published literature
 the mapping rules rely on, and built the synthetic tests and decoder
 validation.
 
-The author set the goals and the architecture, made the design decisions,
-supplied the analysis of the original hardware (schematic and sample
+As the author I primarily set the goals and the architecture, made the design 
+decisions, supplied the analysis of the original hardware (schematic and sample
 tracks), audited Claude's code and documentation to the best of their
 ability, and tested the output on FOC-Stim hardware.
+
+What's interesting is that initially I intended to use Claude only to lay out
+the boiletplate code (ie the GUI and basic app architecture), but, it did an
+excellent job in applying its research findings to the application.
 
 The extensive documentation in [docs/](docs/README.md) exists partly for this
 reason: it records the reasoning behind each decision, including Claude's, so
