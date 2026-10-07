@@ -3,6 +3,7 @@
 //
 //	stimconv [--console]           (graphical interface)
 //	stimconv cli [flags] <audio file>
+//	stimconv tools teleplot [flags]   (terminal link monitor for restim)
 package main
 
 import (
@@ -10,9 +11,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/gogpu/gg/gpu" // GPU acceleration for the GUI
 
@@ -21,6 +24,7 @@ import (
 	"github.com/trilithus/stimconv/internal/gui"
 	"github.com/trilithus/stimconv/internal/pipeline"
 	"github.com/trilithus/stimconv/internal/presets"
+	"github.com/trilithus/stimconv/internal/teleplot"
 )
 
 type rangeFlags map[string]config.Range
@@ -54,8 +58,14 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	case args[0] == "tools":
+		if err := runTools(args[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "stimconv:", err)
+			os.Exit(1)
+		}
+		return
 	case args[0] != "cli":
-		fmt.Fprintln(os.Stderr, "Usage:\n  stimconv                          open the graphical interface\n  stimconv --console                GUI, keeping the console window for log output (Windows)\n  stimconv cli [flags] <audio file>  command-line conversion (stimconv cli -h for flags)")
+		fmt.Fprintln(os.Stderr, "Usage:\n  stimconv                          open the graphical interface\n  stimconv --console                GUI, keeping the console window for log output (Windows)\n  stimconv cli [flags] <audio file>  command-line conversion (stimconv cli -h for flags)\n  stimconv tools teleplot [flags]    terminal monitor for restim's FOC-Stim link metrics")
 		os.Exit(2)
 	}
 	if err := run(args[1:]); err != nil {
@@ -181,4 +191,28 @@ func presetName(args []string) string {
 		}
 	}
 	return presets.DefaultName
+}
+
+func runTools(args []string) error {
+	if len(args) == 0 || args[0] != "teleplot" {
+		return fmt.Errorf("usage: stimconv tools teleplot [flags]")
+	}
+	fs := flag.NewFlagSet("stimconv tools teleplot", flag.ContinueOnError)
+	o := teleplot.Options{}
+	fs.StringVar(&o.Addr, "listen", teleplot.DefaultAddr, "UDP address to listen on (restim sends to 127.0.0.1:47269)")
+	fs.DurationVar(&o.Window, "window", time.Minute, "history kept and shown")
+	fs.DurationVar(&o.Refresh, "refresh", 250*time.Millisecond, "redraw interval")
+	fs.IntVar(&o.Width, "width", 60, "history columns")
+	fs.StringVar(&o.Prefix, "prefix", "", "restim's FOC-Stim teleplot prefix setting, if set")
+	fs.StringVar(&o.Filter, "filter", "", "show only metrics whose name contains this")
+	fs.StringVar(&o.Forward, "forward", "", "also re-send every datagram to this UDP address (e.g. a Teleplot app on another port)")
+	if err := fs.Parse(args[1:]); err != nil {
+		return err
+	}
+	if o.Window <= 0 || o.Refresh <= 0 || o.Width < 1 {
+		return fmt.Errorf("--window, --refresh and --width must be positive")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	return teleplot.Run(ctx, o, os.Stdout)
 }
