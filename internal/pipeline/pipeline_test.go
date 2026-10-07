@@ -6,11 +6,13 @@ import (
 	"encoding/binary"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/trilithus/stimconv/internal/config"
+	"github.com/trilithus/stimconv/internal/funscript"
 )
 
 // writeWAV writes a 16-bit stereo 650 Hz square burst train (20 Hz) on L and
@@ -107,7 +109,9 @@ func TestReadme(t *testing.T) {
 	}
 	md := string(b)
 	for _, want := range []string{
-		"| Original file | `my track.wav` |",
+		"converted from the audio drive signal in `my track.wav`",
+		"restim " + RestimVersion, "FOC-Stim firmware " + FOCStimVersion,
+		"| Device wizard | Device type | FOC-Stim 3-phase |",
 		"| Preset | soft |",
 		"| `topology` | joined | no (default dual) |",
 		"| `gamma` | 1.5 | no (default 1) |",
@@ -115,11 +119,19 @@ func TestReadme(t *testing.T) {
 		"| `ifc` | beat | yes |",
 		"| `ranges.frequency.min` | 500 | yes |",
 		"`my track.alpha.funscript`",
-		"## restim",
+		"## Setup",
 	} {
 		if !strings.Contains(md, want) {
 			t.Errorf("README lacks %q", want)
 		}
+	}
+	// it gets shared, so no local paths
+	if strings.Contains(md, dir) || strings.Contains(md, filepath.ToSlash(dir)) {
+		t.Error("README contains the local input path")
+	}
+	// the recipient's part comes before the converter's
+	if strings.Index(md, "## Setup") > strings.Index(md, "### stimconv settings") {
+		t.Error("restim setup is not ahead of the stimconv settings")
 	}
 	// every option is listed
 	for _, o := range config.Options {
@@ -147,5 +159,55 @@ func TestReadme(t *testing.T) {
 	}
 	if _, err := os.Stat(dry); err == nil {
 		t.Error("dry run created the output folder")
+	}
+}
+
+func TestRestimSettings(t *testing.T) {
+	cfg := config.Default()
+	axes := []*funscript.Axis{
+		{Name: "frequency", Min: 300, Max: 2000, Values: []float64{250, 800, 2000}},
+		{Name: "pulse_frequency", Min: 0, Max: 100, Values: []float64{20}},
+		{Name: "volume", Min: 0, Max: 1, Values: []float64{0.5}},
+	}
+	got := map[string]RestimSetting{}
+	for _, s := range RestimSettings(cfg, axes) {
+		got[s.Name] = s
+	}
+	for name, change := range map[string]bool{
+		"Minimum frequency [Hz]":               true, // 300 written, restim 500
+		"Maximum frequency [Hz]":               true, // tau-matched to 2000, restim 1000
+		"Nerve time constant [µs]":             false,
+		"Burst gap instead of pulse frequency": true,
+		"frequency limit min – max":            true,
+		"volume limit min – max":               false,
+		"Waveform amplitude [mA]":              false,
+	} {
+		s, ok := got[name]
+		if !ok {
+			t.Errorf("%s missing", name)
+		} else if s.Change != change {
+			t.Errorf("%s: change = %v, want %v (%+v)", name, s.Change, change, s)
+		}
+	}
+	if s := got["Minimum frequency [Hz]"]; s.Need != "300 or lower" {
+		t.Errorf("min carrier need %q: values must be clamped to the written range", s.Need)
+	}
+}
+
+// The restim defaults in restim.go were read from the reference submodules;
+// a submodule bump must update the versions (and re-check the defaults).
+func TestReferenceVersions(t *testing.T) {
+	for dir, want := range map[string]string{"../../reference/restim": RestimVersion, "../../reference/FOC-Stim": FOCStimVersion} {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
+			t.Logf("%s absent, skipped", dir)
+			continue
+		}
+		out, err := exec.Command("git", "-C", dir, "describe", "--tags", "--always").Output()
+		if err != nil {
+			t.Skipf("git describe: %v", err)
+		}
+		if got := strings.TrimSpace(string(out)); got != want {
+			t.Errorf("%s is at %s, restim.go says %s: re-check the defaults there and update the version", dir, got, want)
+		}
 	}
 }

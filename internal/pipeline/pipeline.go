@@ -165,7 +165,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 	for _, w := range res.Warnings {
 		fmt.Fprintln(log, "warning:", w)
 	}
-	out.Hints = RestimHints(cfg)
+	out.Hints = RestimHints(cfg, res.Axes)
 	if !o.DryRun {
 		readme := filepath.Join(dir, ReadmeName(in, o.OutDir != ""))
 		preset := o.Preset
@@ -173,7 +173,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 			preset = "default"
 		}
 		if err := writeReadme(readme, cfg, readmeInfo{
-			Input: in, Source: what, Preset: preset, Files: out.Files, Warnings: res.Warnings, Hints: out.Hints,
+			Input: in, Source: what, Preset: preset, Duration: raw.Duration, Files: out.Files, Warnings: res.Warnings, Restim: RestimSettings(cfg, res.Axes),
 		}); err != nil {
 			return out, err
 		}
@@ -191,31 +191,4 @@ func printStats(log io.Writer, a *funscript.Axis, points int) {
 	}
 	fmt.Fprintf(log, "  %-22s min %9.3f  mean %9.3f  max %9.3f  (%d points, range %g..%g)\n",
 		a.Name, lo, sum/float64(len(a.Values)), hi, points, a.Min, a.Max)
-}
-
-// RestimHints describes the restim settings the output depends on.
-func RestimHints(cfg config.Config) string {
-	mode := "FOC-Stim 4-phase"
-	if cfg.Topology == "joined" {
-		mode = "FOC-Stim 3-phase"
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "restim: use device %s; ", mode)
-	if cfg.Intensity == "effective" {
-		fmt.Fprintf(&b, "volume is strength-duration matched, so keep restim's tau at %g us and its maximum carrier at %g Hz; ", cfg.TauUS, cfg.RefCarrierHz)
-	}
-	def := config.Default().Ranges
-	var custom []string
-	for k, r := range cfg.Ranges {
-		if d, ok := def[k]; !ok || d != r {
-			custom = append(custom, fmt.Sprintf("%s %g..%g", k, r.Min, r.Max))
-		}
-	}
-	sort.Strings(custom)
-	if len(custom) > 0 {
-		fmt.Fprintf(&b, "set these funscript kit ranges: %s", strings.Join(custom, ", "))
-	} else {
-		b.WriteString("funscript kit ranges: restim defaults")
-	}
-	return b.String()
 }
