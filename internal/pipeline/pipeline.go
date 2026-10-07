@@ -136,6 +136,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 		}
 	}
 	base := strings.TrimSuffix(filepath.Base(in), filepath.Ext(in))
+	var written []writtenAxis
 	for _, a := range res.Axes {
 		acts := a.Actions(cfg.Epsilon)
 		path := filepath.Join(dir, base+"."+a.Name+".funscript")
@@ -144,7 +145,14 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 				return out, err
 			}
 			out.Files = append(out.Files, path)
+			// validate what is on disk, not what we meant to write
+			s, err := funscript.Read(path)
+			if err != nil {
+				return out, err
+			}
+			acts = s.Actions
 		}
+		written = append(written, writtenAxis{Name: a.Name, Actions: acts})
 		if o.Stats {
 			printStats(log, a, len(acts))
 		}
@@ -162,8 +170,15 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 			fmt.Fprintf(log, "A/B multiplexed: %.0f%% of the time (overlap %s)\n", 100*res.Multiplexed, cfg.Overlap)
 		}
 	}
+	issues := validate(raw, cfg.SilenceDB, written)
+	for _, v := range issues {
+		res.Warnings = append(res.Warnings, "validation failed: "+v)
+	}
 	for _, w := range res.Warnings {
 		fmt.Fprintln(log, "warning:", w)
+	}
+	if len(issues) == 0 {
+		fmt.Fprintln(log, "validation: output matches the input's activity, files are well-formed")
 	}
 	out.Hints = RestimHints(cfg, res.Axes)
 	if !o.DryRun {
