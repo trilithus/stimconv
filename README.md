@@ -17,8 +17,9 @@ current.
 > stimconv is not under (very) active development, so while issues and feature
 > requests are always welcome, they may not be implemented any time soon.
 > If you need changes, you are strongly encouraged to fork the 
-> project, have Claude Code or another LLM make the changes, test them, and 
-> then file a merge/pull request.
+> project, make the changes, and file a pull request. For obvious reasons LLM 
+> generated code will be accepted, provided you do your own code review and tests
+> and document these in the merge/pull request.
 >
 
 <a href="docs/images/main.png"><img src="docs/images/main.png" alt="Main window after a conversion" width="384"></a>
