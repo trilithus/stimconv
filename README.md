@@ -14,9 +14,12 @@ current.
 > the software, its use, or the use of the files it produces. It is not a
 > medical device.
 >
-> stimconv is not under active development, and feature requests will not be
-> accepted. If you need changes, you are strongly encouraged to fork the
-> project. MRs/PRs with improvements are welcome.
+> stimconv is not under (very) active development, so while issues and feature
+> requests are always welcome, they may not be implemented any time soon.
+> If you need changes, you are strongly encouraged to fork the 
+> project, have Claude Code or another LLM make the changes, test them, and 
+> then file a merge/pull request.
+>
 
 <a href="docs/images/main.png"><img src="docs/images/main.png" alt="Main window after a conversion" width="384"></a>
 
