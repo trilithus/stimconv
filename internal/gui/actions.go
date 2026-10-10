@@ -149,6 +149,39 @@ func (u *ui) exportConfig() {
 	})
 }
 
+// importReport loads the settings block of a settings report (.md) as the
+// current options. They become a preset only when saved.
+func (u *ui) importReport() {
+	u.dialog(func() (string, error) {
+		return zenity.SelectFile(zenity.Title("Import settings from a stimconv report"),
+			zenity.FileFilters{{Name: "stimconv report", Patterns: []string{"*.md"}}, {Name: "All files", Patterns: []string{"*"}}})
+	}, func(p string) {
+		data, err := os.ReadFile(p)
+		if err == nil {
+			var e config.Embedded
+			if e, err = config.DecodePEM(data); err == nil {
+				u.applyImported(e, filepath.Base(p))
+				return
+			}
+		}
+		u.logf("error: import %s: %v", filepath.Base(p), err)
+	})
+}
+
+// applyImported makes imported settings the current options. The preset
+// name field suggests the original preset's name unless that is taken by a
+// built-in, so Save stores them under it.
+func (u *ui) applyImported(e config.Embedded, from string) {
+	u.cfg = e.Config
+	name := ""
+	if presets.ValidateName(e.Preset) == nil {
+		name = e.Preset
+	}
+	u.presetName.Set(name)
+	u.rebuild()
+	u.logf("imported settings from %s (preset %s, made with stimconv %s); Save stores them as a preset", from, e.Preset, e.Version)
+}
+
 // setInput selects the input file and sniffs its format in the background.
 func (u *ui) setInput(p string) {
 	p = strings.TrimSpace(p)

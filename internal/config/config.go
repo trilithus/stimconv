@@ -159,6 +159,13 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return c, err
 	}
+	if HasPEM(b) { // a settings report
+		e, err := DecodePEM(b)
+		if err != nil {
+			return c, fmt.Errorf("%s: %w", path, err)
+		}
+		return e.Config, nil
+	}
 	if err := json.Unmarshal(b, &c); err != nil {
 		return c, fmt.Errorf("parse %s: %w", path, err)
 	}

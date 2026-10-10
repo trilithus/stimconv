@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -244,6 +245,16 @@ func TestReadme(t *testing.T) {
 	// the recipient's part comes before the converter's
 	if strings.Index(md, "## Setup") > strings.Index(md, "### stimconv settings") {
 		t.Error("restim setup is not ahead of the stimconv settings")
+	}
+	// the settings block at the end reads back as the exact configuration
+	if e, err := config.DecodePEM(b); err != nil || !reflect.DeepEqual(e.Config, cfg) || e.Preset != "soft" || e.Version == "" {
+		t.Errorf("settings block: %v, %+v", err, e)
+	}
+	if c, err := config.Load(filepath.Join(res.OutDir, "README.md")); err != nil || !reflect.DeepEqual(c, cfg) {
+		t.Errorf("config.Load of the report: %v", err)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(md), "-----END "+config.PEMType+"-----\n```") {
+		t.Error("the settings block is not the end of the report")
 	}
 	// every option is listed
 	for _, o := range config.Options {

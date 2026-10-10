@@ -114,7 +114,11 @@ func writeReadme(path string, cfg config.Config, info readmeInfo) error {
 		}
 		fmt.Fprintf(&b, "| %s | `%s` | %s | %s |\n", mdCell(label), o.Key, mdCell(shown), mdCell(isDef))
 	}
-	fmt.Fprintf(&b, "\nReproduce with the CLI: save these settings as a JSON config (GUI: Export config…) and run `stimconv cli --config <file> \"%s\"`.\n", mdInline(name))
+	block, err := config.EncodePEM(cfg, version(), info.Preset)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(&b, "\n### Settings block\n\nAll settings above, defaults included, for stimconv to read back: GUI File → Import settings from report…, or `stimconv cli --config <this file> \"%s\"`.\n\n```\n%s```\n", mdInline(name), block)
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 

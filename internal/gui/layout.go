@@ -367,6 +367,7 @@ func (u *ui) menuBar() widget.Widget {
 			menu.Item("Open audio or video…", "", u.browseInput),
 			menu.Sep(),
 			menu.Item("Export config…", "", u.exportConfig),
+			menu.Item("Import settings from report…", "", u.importReport),
 			menu.Item("Open Preset Folder", "", u.openPresetFolder),
 			menu.Sep(),
 			menu.Item("Quit", "", func() {
