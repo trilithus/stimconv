@@ -60,6 +60,33 @@ var stimSignals = map[string]func(t float64) (float64, float64){
 		g := 0.2 + 0.8*math.Mod(t/10, 1)
 		return g * math.Sin(2*math.Pi*300*t), 0
 	},
+	// stim the carrier-only check missed: low carriers, a low square with
+	// its odd harmonics, and band-limited noise
+	"105 Hz / 300 Hz tones": func(t float64) (float64, float64) {
+		return 0.3 * math.Sin(2*math.Pi*105*t), 0.3 * math.Sin(2*math.Pi*300*t)
+	},
+	"58 Hz square": func(t float64) (float64, float64) {
+		v := 0.5 * sq(2*math.Pi*58*t)
+		return v, 0.7 * v
+	},
+	"noise band 4.5-6.5 kHz": bandNoise(4500, 6500),
+}
+
+// bandNoise is steady noise limited to lo-hi Hz (a sum of random-phase
+// sines 10 Hz apart).
+func bandNoise(lo, hi float64) func(t float64) (float64, float64) {
+	var f, ph []float64
+	for x := lo; x <= hi; x += 10 {
+		f, ph = append(f, x), append(ph, 2*math.Pi*rng.Float64())
+	}
+	return func(t float64) (float64, float64) {
+		v := 0.0
+		for i := range f {
+			v += math.Sin(2*math.Pi*f[i]*t + ph[i])
+		}
+		v *= 0.3 / math.Sqrt(float64(len(f)))
+		return v, v
+	}
 }
 
 var rng = rand.New(rand.NewSource(1))
@@ -87,6 +114,16 @@ var audioSignals = map[string]func(t float64) (float64, float64){
 		}
 		hat := 0.1 * rng.NormFloat64() * math.Exp(-40*math.Mod(t*4, 1))
 		return 0.3 * (bass + chord + kick + hat), 0.3 * (bass + chord*0.8 + kick + hat)
+	},
+	// a voice with no bass and a strong fundamental (as in a video
+	// soundtrack): fundamental and octave hold most of the energy, so it
+	// passes the low-frequency and peak tests and only the octave test
+	// tells it from a carrier
+	"voice without bass, 180-250 Hz": func(t float64) (float64, float64) {
+
+		ph := 2 * math.Pi * (215*t - 35/(2*math.Pi*0.4)*math.Cos(2*math.Pi*0.4*t))
+		v := 0.3 * (math.Sin(ph) + 0.7*math.Sin(2*ph) + 0.1*math.Sin(3*ph))
+		return v, v
 	},
 	"speech-like, male 110 Hz":   speech(110),
 	"speech-like, female 210 Hz": speech(210),
