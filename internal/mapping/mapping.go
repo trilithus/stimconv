@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/trilithus/stimconv/internal/analysis"
+	"github.com/trilithus/stimconv/internal/circuit"
 	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/funscript"
 	"github.com/trilithus/stimconv/internal/physio"
@@ -404,11 +405,63 @@ func holdThroughSilence(vol []float64, series ...[]float64) {
 	}
 }
 
+// RefLevel is the level abs normalisation maps to volume 1: cfg.RefLevel, or
+// when that is 0 the level of full-scale audio. That is a full-scale square
+// wave, the strongest signal the audio can carry, at FOC-Stim's lowest
+// carrier: longer phases count as stronger in effective intensity, so no
+// playable full-scale signal exceeds it. Its edges drive current spikes
+// through the skin capacitance, so it is measured through the circuit model
+// the way the analysis measures (peak and mean/peak form factor) rather than
+// taken from the steady-state sine gain. Without the circuit model the audio
+// is the level itself (peak 1, form factor 1).
+func RefLevel(cfg config.Config) float64 {
+	if cfg.RefLevel > 0 {
+		return cfg.RefLevel
+	}
+	return fullScaleLevel(cfg, config.FOCLimits["frequency"].Min)
+}
+
+// fullScaleLevel is the analysis level of a full-scale square wave at f Hz
+// through the circuit model: its peak current, or with effective intensity
+// that peak weighted by form factor and phase efficacy like chanState does.
+func fullScaleLevel(cfg config.Config, f float64) float64 {
+	tau := cfg.TauUS * 1e-6
+	if !cfg.Circuit.Enabled {
+		if cfg.Intensity != "effective" {
+			return 1
+		}
+		return physio.Effective(1, 1, f, cfg.RefCarrierHz, tau)
+	}
+	const sr = 48000
+	m := circuit.New(cfg.Circuit, sr)
+	n := int(0.2 * sr) // settle, then measure the last half
+	var peak, sum float64
+	for i := 0; i < n; i++ {
+		x := 1.0
+		if math.Mod(float64(i)*f/sr, 1) >= 0.5 {
+			x = -1
+		}
+		y := math.Abs(m.Step(x))
+		if i >= n/2 {
+			peak = math.Max(peak, y)
+			sum += y
+		}
+	}
+	if peak <= 0 {
+		return 1
+	}
+	if cfg.Intensity != "effective" {
+		return peak
+	}
+	ff := sum / float64(n-n/2) / peak
+	return physio.Effective(peak, ff, f, cfg.RefCarrierHz, tau)
+}
+
 func normalizeVolume(vol []float64, cfg config.Config) {
 	var ref float64
 	switch cfg.Normalize {
 	case "abs":
-		ref = cfg.RefLevel
+		ref = RefLevel(cfg)
 	case "peak", "p99":
 		var nz []float64
 		for _, v := range vol {

@@ -4,9 +4,30 @@ Every conversion option, with its configuration key (as in `--config` /
 `--emit-config` JSON), its command-line flag, its default, and what it changes
 technically. Options marked *advanced* are only shown in the GUI's expert mode.
 
+## Built-in presets
+
+The defaults below are the `[tri-original]` preset. The GUI's preset list and
+the CLI's `--preset` flag also offer the others; `--config` and individual
+flags override a preset.
+
+| Preset | Topology | Volume |
+|---|---|---|
+| `[quad-original]` | dual | **original**: `normalize abs` (auto reference), `gamma 1`, no circuit model, `intensity current`. The volume is the recorded peak level; quiet tracks stay quiet. |
+| `[quad-normalized]` | dual | **normalized**: `normalize p99`, `gamma 0.85`, circuit model, `intensity effective`. Each track scaled to the full range, quiet passages lifted. |
+| `[tri-original]` (default) | joined | original, with the beat between different carriers imitated (`ifc beat`) |
+| `[tri-original-smooth]` | joined | original, without the beat imitation (`ifc off`) |
+| `[tri-normalized]` | joined | normalized |
+
+The original settings became the default after listening tests: the circuit
+model and effective intensity rate square waves as much stronger than sines,
+which made tracks that mix both feel unbalanced, while the plain recorded peak
+level matched the original box. With `intensity current`, set restim's nerve
+time constant (τ) to 0 so it does not derate low carriers; the settings report
+says so.
+
 ## Output type
 
-### `topology` — `--topology` — default `dual`
+### `topology` — `--topology` — default `joined`
 
 | Value | Meaning |
 |---|---|
@@ -40,7 +61,7 @@ How envelope rhythm is rendered ([6.2](06-mapping.md#62-rendering-modes)).
 | `pulses` | Every detected rhythm becomes FOC pulse parameters. Width and rise are clamped to FOC-Stim limits. |
 | `volume` | Every rhythm goes into the volume axis over a high-rate pulse train. Keeps full burst length, but rhythms faster than about 12–15 Hz are smeared by restim's ~30 ms update ramps. |
 
-### `intensity` — `--intensity` — default `effective`
+### `intensity` — `--intensity` — default `current`
 
 What the volume axis measures ([6.3](06-mapping.md#63-intensity)).
 
@@ -49,7 +70,7 @@ What the volume axis measures ([6.3](06-mapping.md#63-intensity)).
 | `effective` | Strength–duration weighted charge per phase, relative to a sine at `ref_carrier_hz`. Accounts for waveform shape and carrier. Requires restim's τ = `tau_us` and maximum carrier = `ref_carrier_hz`. |
 | `current` | Peak electrode current (or peak audio amplitude without the circuit model). Ignores carrier and waveform shape. |
 
-### `normalize` — `--normalize` — default `p99`
+### `normalize` — `--normalize` — default `abs`
 
 How the volume series is scaled ([6.8](06-mapping.md#68-volume-normalisation)).
 
@@ -131,11 +152,19 @@ The carrier at which restim's TauCalibration applies no derating: FOC-Stim's
 maximum carrier, clipped by restim's safety limits. If restim's maximum carrier
 is set lower, set this to the same value.
 
-### `ref_level` — `--ref-level` — default `1` — only with `normalize = abs`
+### `ref_level` — `--ref-level` — default `0` (auto) — only with `normalize = abs`
 
 The level that maps to volume 1, in the analysis unit: effective-intensity
 units (`effective`), amperes (`current` with the circuit model), or full scale
-(no circuit model).
+(no circuit model). `0` picks the level of full-scale audio: a full-scale
+square wave at FOC-Stim's lowest carrier (300 Hz), sent through the circuit
+model and measured like the analysis does (without the circuit model, the
+audio itself: 1 as `current`, about 3.1 as `effective`). A
+square is the strongest signal the audio can carry, and the lowest carrier
+counts as strongest in effective intensity, so no playable full-scale track
+exceeds it. With the circuit model's default parameters that is about 0.13 (`effective`) or 92 mA
+(`current`). A track that peaks at half scale then reaches about half volume
+(before `gamma`).
 
 ### `silence_db` — `--silence-db` — default `-40`
 
@@ -172,7 +201,7 @@ See [3](03-original-hardware-model.md). All circuit parameters except
 
 | Key | Flag | Default | Meaning |
 |---|---|---|---|
-| `circuit.enabled` | `--circuit` | `true` | Analyse estimated electrode current instead of the audio waveform. Without it, a 5 Hz DC blocker is applied instead. |
+| `circuit.enabled` | `--circuit` | `false` | Analyse estimated electrode current instead of the audio waveform. Without it, a 5 Hz DC blocker is applied instead. |
 | `circuit.amp_v_peak` | `--amp-v-peak` | 12 V | Amplifier output voltage at full-scale audio. Pure scale. |
 | `circuit.series_r` | `--series-r` | 3.9 Ω | Series resistor between amplifier and transformer. |
 | `circuit.winding_r` | `--winding-r` | 1 Ω | Primary winding resistance. |

@@ -151,6 +151,16 @@ func (u *ui) optionsSection() widget.Widget {
 	return panel(primitives.Expanded(scrollview.New(body, scrollview.ScrollYSignal(u.optScroll))))
 }
 
+// presetHelp describes the selected built-in preset (if any) and how presets
+// work.
+func (u *ui) presetHelp() string {
+	h := "Picking a preset loads it; the bracketed ones are built in. Save stores the current options under the typed name (letters, digits, - and _). With “Add preset to folder name”, the preset name is also added to the default output folder."
+	if b, ok := presets.Lookup(u.preset); ok {
+		h = b.Desc + " " + h
+	}
+	return h
+}
+
 func (u *ui) presetRow() widget.Widget {
 	names := presets.List()
 	sel := max(slices.Index(names, u.preset), 0)
@@ -175,7 +185,7 @@ func (u *ui) presetRow() widget.Widget {
 			checkbox.New(checkbox.Label("Expert mode"), checkbox.Checked(u.expert),
 				checkbox.OnToggle(func(b bool) { u.post(func() { u.expert = b; u.rebuild() }) })),
 		).Gap(8).CrossAlign(primitives.CrossAxisCenter),
-		muted("Picking a preset loads it, and “[default]” resets every option. Save stores the current options under the typed name (letters, digits, - and _). With “Add preset to folder name”, the preset name is also added to the default output folder."),
+		muted(u.presetHelp()),
 	).Gap(4)
 }
 

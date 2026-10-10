@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/trilithus/stimconv/internal/analysis"
+	"github.com/trilithus/stimconv/internal/circuit"
 	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/funscript"
 )
@@ -77,6 +78,7 @@ func med(a *funscript.Axis, t0, t1 float64) float64 {
 
 func TestStayhLikeDual(t *testing.T) {
 	cfg := config.Default()
+	cfg.Topology = "dual"
 	res := run(t, 6, cfg, func(t float64) (float64, float64) {
 		ph := math.Mod(t*20, 1)
 		env := 0.0
@@ -112,6 +114,7 @@ func TestStayhLikeDual(t *testing.T) {
 
 func TestCrossfadeDualBlend(t *testing.T) {
 	cfg := config.Default()
+	cfg.Topology = "dual"
 	cfg.Overlap = "blend"
 	res := run(t, 8, cfg, func(t float64) (float64, float64) {
 		g := 0.5 + 0.45*math.Sin(2*math.Pi*0.5*t)
@@ -187,6 +190,7 @@ func TestEffectiveIntensityMatchesAcrossCarriers(t *testing.T) {
 	// should differ by the charge ratio pi/2.
 	cfg := config.Default()
 	cfg.Circuit.Enabled = false
+	cfg.Intensity = "effective"
 	cfg.Normalize = "abs"
 	cfg.RefLevel = 4 // keep below clipping
 	cfg.Gamma = 1    // compare linear volumes
@@ -207,6 +211,7 @@ func TestEffectiveIntensityMatchesAcrossCarriers(t *testing.T) {
 // auto: independent A/B content (different carriers) is multiplexed ...
 func TestAutoMultiplexesIndependentContent(t *testing.T) {
 	cfg := config.Default() // overlap auto
+	cfg.Topology = "dual"
 	res := run(t, 6, cfg, func(t float64) (float64, float64) {
 		return 0.4 * math.Sin(2*math.Pi*800*t), 0.4 * math.Sin(2*math.Pi*900*t)
 	})
@@ -238,6 +243,7 @@ func TestAutoMultiplexesIndependentContent(t *testing.T) {
 // ... while mono content (A = B, even at different levels) is blended.
 func TestAutoBlendsMono(t *testing.T) {
 	cfg := config.Default()
+	cfg.Topology = "dual"
 	res := run(t, 6, cfg, func(t float64) (float64, float64) {
 		v := 0.4 * math.Sin(2*math.Pi*800*t)
 		return v, 0.7 * v
@@ -258,5 +264,40 @@ func TestMajority(t *testing.T) {
 		if out[i] != want[i] {
 			t.Fatalf("majority = %v, want %v", out, want)
 		}
+	}
+}
+
+// abs with the auto reference maps full-scale audio to volume 1: a full-scale
+// square at the lowest carrier, through the circuit model when it is on.
+func TestAutoRefLevel(t *testing.T) {
+	cfg := config.Default()
+	if cfg.RefLevel != 0 {
+		t.Fatalf("default ref_level = %v, want 0 (auto)", cfg.RefLevel)
+	}
+	// the default (no circuit model, plain current) treats the audio as the
+	// level: full scale is 1
+	if got := RefLevel(cfg); got != 1 {
+		t.Errorf("auto ref with the default settings = %v, want 1", got)
+	}
+	// a full-scale square through the circuit: at least the steady-state
+	// sine current (its edges add capacitive spikes), and in the tens of mA
+	cfg.Circuit.Enabled, cfg.Intensity = true, "effective"
+	got := RefLevel(cfg)
+	if sine := circuit.Gain(cfg.Circuit, cfg.RefCarrierHz); got < sine || got > 0.5 {
+		t.Errorf("auto ref with circuit = %v, want >= %v (sine gain) and < 0.5", got, sine)
+	}
+	// without the circuit model: a full-scale square is level 1 as current,
+	// more with effective intensity (square, 300 Hz count as stronger)
+	cfg.Circuit.Enabled = false
+	if got := RefLevel(cfg); got <= 1 {
+		t.Errorf("auto ref without circuit, effective = %v, want > 1", got)
+	}
+	cfg.Intensity = "current"
+	if got := RefLevel(cfg); got != 1 {
+		t.Errorf("auto ref without circuit, current = %v, want 1", got)
+	}
+	cfg.RefLevel = 0.2
+	if got := RefLevel(cfg); got != 0.2 {
+		t.Errorf("explicit ref = %v, want 0.2", got)
 	}
 }

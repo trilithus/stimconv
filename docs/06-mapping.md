@@ -68,9 +68,9 @@ fidelity.
 
 Option `intensity`. The level of a channel is either:
 
-- **current**: the raw envelope value (peak electrode current, or peak
+- **current** (default): the raw envelope value (peak electrode current, or peak
   full-scale amplitude without the circuit model);
-- **effective** (default): a strength–duration weighted charge per phase,
+- **effective** (the `*-normalized` presets): a strength–duration weighted charge per phase,
   relative to a full-amplitude sine at the reference carrier:
 
 ```
@@ -213,9 +213,9 @@ After rendering, the volume series is normalised:
 
 | `normalize` | Reference |
 |---|---|
-| **p99** (default) | 99th percentile of the non-silent volume values |
+| **p99** (the `*-normalized` presets) | 99th percentile of the non-silent volume values |
 | **peak** | maximum value |
-| **abs** | `ref_level`, a fixed level in the analysis unit (A, or full scale) |
+| **abs** (default) | `ref_level`, a fixed level in the analysis unit (A, or full scale); 0 = the level of full-scale audio |
 
 volume = min(v / ref, 1)^`gamma`.
 

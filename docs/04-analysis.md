@@ -36,7 +36,7 @@ was fed the same decoded audio.
 
 ## 4.2 Circuit model or DC blocker
 
-With `circuit.enabled` (the default), each channel passes through the circuit
+With `circuit.enabled` (on in the `*-normalized` presets, off by default), each channel passes through the circuit
 model ([3](03-original-hardware-model.md)), and all later quantities are in
 **amperes of electrode current**. Without it, a 5 Hz first-order high-pass
 removes DC, as the transformer would, and quantities are in full-scale audio

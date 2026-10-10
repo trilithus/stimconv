@@ -365,7 +365,7 @@ func (u *ui) loadPreset(name string) {
 		return
 	}
 	u.cfg, u.preset = c, name
-	if name == presets.Default {
+	if _, builtin := presets.Lookup(name); builtin {
 		u.presetName.Set("")
 	} else {
 		u.presetName.Set(name)
@@ -377,7 +377,7 @@ func (u *ui) loadPreset(name string) {
 
 func (u *ui) savePreset() {
 	name := strings.TrimSpace(u.presetName.Get())
-	if name == "" && u.preset != presets.Default {
+	if _, builtin := presets.Lookup(u.preset); name == "" && !builtin {
 		name = u.preset
 	}
 	if err := presets.ValidateName(name); err != nil {

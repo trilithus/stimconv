@@ -93,6 +93,11 @@ func RestimSettings(cfg config.Config, axes []*funscript.Axis) []RestimSetting {
 
 	if cfg.Intensity == "effective" {
 		add(vol, "Nerve time constant [µs]", fmt.Sprintf("%g", cfg.TauUS), fmt.Sprintf("%g", restimTauUS), cfg.TauUS != restimTauUS)
+	} else {
+		// restim derates the volume of carriers below its maximum by
+		// (f·tau + 0.5) / (fmax·tau + 0.5); tau 0 makes that 1, so the
+		// volume plays as written (the recorded peak level)
+		add(vol, "Nerve time constant [µs]", "0 (no carrier derating; the volume is the recorded level)", fmt.Sprintf("%g", restimTauUS), true)
 	}
 	if byName["pulse_frequency"] != nil {
 		// the original's pulse rate is reproduced, so its effect on loudness

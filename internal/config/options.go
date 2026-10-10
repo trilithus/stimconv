@@ -106,7 +106,7 @@ func buildOptions() []Option {
 			GroupLevel, true, func(c Config) bool { return c.Intensity == "effective" }, func(c *Config) *float64 { return &c.TauUS }),
 		num("ref_carrier_hz", "Reference carrier (Hz)", "Carrier at which restim applies no tau derating (FOC maximum carrier).",
 			GroupLevel, true, func(c Config) bool { return c.Intensity == "effective" }, func(c *Config) *float64 { return &c.RefCarrierHz }),
-		num("ref_level", "Reference level", "abs normalisation: level mapped to volume 1.",
+		num("ref_level", "Reference level", "abs normalisation: level mapped to volume 1. 0 = auto: the level of full-scale audio (a full-scale square at FOC-Stim's lowest carrier through the circuit model), so a track peaking at half scale reaches about half volume.",
 			GroupLevel, true, func(c Config) bool { return c.Normalize == "abs" }, func(c *Config) *float64 { return &c.RefLevel }),
 		num("silence_db", "Silence threshold (dB)", "Envelope below the track maximum by this many dB is silence.",
 			GroupLevel, true, nil, func(c *Config) *float64 { return &c.SilenceDB }),

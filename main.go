@@ -75,22 +75,21 @@ func main() {
 }
 
 func run(args []string) error {
-	// the config file provides the defaults the flags then override
+	// a preset, then a config file, provide the values the flags override
 	cfg := config.Default()
-	for i, a := range args {
-		if (a == "--config" || a == "-config") && i+1 < len(args) {
-			c, err := config.Load(args[i+1])
-			if err != nil {
-				return err
-			}
-			cfg = c
-		} else if v, ok := strings.CutPrefix(a, "--config="); ok {
-			c, err := config.Load(v)
-			if err != nil {
-				return err
-			}
-			cfg = c
+	if name, ok := flagValue(args, "preset"); ok {
+		c, err := presets.Load(name)
+		if err != nil {
+			return fmt.Errorf("preset %q: %w (built-in: %s)", name, err, builtinNames())
 		}
+		cfg = c
+	}
+	if path, ok := flagValue(args, "config"); ok {
+		c, err := config.Load(path)
+		if err != nil {
+			return err
+		}
+		cfg = c
 	}
 
 	fs := flag.NewFlagSet("stimconv", flag.ContinueOnError)
@@ -99,10 +98,11 @@ func run(args []string) error {
 		fs.PrintDefaults()
 	}
 	fs.String("config", "", "JSON config file (flags override it)")
+	fs.String("preset", "", "start from a preset: built-in ("+builtinNames()+") or a preset saved in the GUI; --config and flags override it")
 	emit := fs.String("emit-config", "", "write the effective config as JSON to this path")
 	outDir := fs.String("o", "", "output directory (default: <output name> next to the input; see --name and --preset-suffix)")
 	outName := fs.String("name", "", "output name instead of the input name without extension, e.g. PEP11 for PEP11.fr.mp3 -> PEP11.alpha.funscript (also names the default folder)")
-	presetSuffix := fs.Bool("preset-suffix", false, "name the default output folder <output name>.<preset> (preset = --config file name or \"default\")")
+	presetSuffix := fs.Bool("preset-suffix", false, "name the default output folder <output name>.<preset> (preset = --preset, else the --config file name, else "+presets.DefaultName+")")
 	stats := fs.Bool("stats", false, "print per-axis statistics")
 	dump := fs.String("dump-features", "", "write per-hop analysis features to this CSV path")
 	dry := fs.Bool("dry-run", false, "analyse only, do not write funscripts")
@@ -125,7 +125,7 @@ func run(args []string) error {
 	fs.Float64Var(&cfg.TauUS, "tau-us", cfg.TauUS, "nerve chronaxie in microseconds (match restim's tau setting)")
 	fs.Float64Var(&cfg.RefCarrierHz, "ref-carrier-hz", cfg.RefCarrierHz, "carrier at which restim applies no tau derating (FOC max carrier)")
 	fs.StringVar(&cfg.Normalize, "normalize", cfg.Normalize, "volume normalisation: p99 | peak | abs")
-	fs.Float64Var(&cfg.RefLevel, "ref-level", cfg.RefLevel, "abs normalisation: level mapped to volume 1")
+	fs.Float64Var(&cfg.RefLevel, "ref-level", cfg.RefLevel, "abs normalisation: level mapped to volume 1 (0 = auto: the level of full-scale audio)")
 	fs.Float64Var(&cfg.Gamma, "gamma", cfg.Gamma, "volume exponent after normalisation")
 	fs.Float64Var(&cfg.SilenceDB, "silence-db", cfg.SilenceDB, "envelope below track max by this many dB is silence")
 	fs.Float64Var(&cfg.ModSplitHz, "mod-split-hz", cfg.ModSplitHz, "split between slow (volume/position) and fast (rhythm) envelope")
@@ -180,19 +180,45 @@ func run(args []string) error {
 	return err
 }
 
-// presetName names the default output folder after the --config file
-// (its name without extension, if that is a valid preset name).
+// presetName names the output folder suffix after --preset, else after the
+// --config file (its name without extension, if that is a valid preset name).
 func presetName(args []string) string {
-	for i, a := range args {
-		v, ok := strings.CutPrefix(a, "--config=")
-		if !ok && (a == "--config" || a == "-config") && i+1 < len(args) {
-			v, ok = args[i+1], true
-		}
-		if ok {
-			return presets.FolderName(strings.TrimSuffix(filepath.Base(v), filepath.Ext(v)))
-		}
+	if v, ok := flagValue(args, "preset"); ok {
+		return presets.FolderName(v)
+	}
+	if v, ok := flagValue(args, "config"); ok {
+		return presets.FolderName(strings.TrimSuffix(filepath.Base(v), filepath.Ext(v)))
 	}
 	return presets.DefaultName
+}
+
+// flagValue finds -name/--name value or --name=value in args before the
+// flags are parsed (the last occurrence wins, as with flag parsing).
+func flagValue(args []string, name string) (string, bool) {
+	var v string
+	found := false
+	for i, a := range args {
+		if a == "--" {
+			break
+		}
+		if (a == "--"+name || a == "-"+name) && i+1 < len(args) {
+			v, found = args[i+1], true
+		} else if x, ok := strings.CutPrefix(a, "--"+name+"="); ok {
+			v, found = x, true
+		} else if x, ok := strings.CutPrefix(a, "-"+name+"="); ok {
+			v, found = x, true
+		}
+	}
+	return v, found
+}
+
+// builtinNames lists the built-in presets without brackets.
+func builtinNames() string {
+	var n []string
+	for _, b := range presets.Builtins {
+		n = append(n, strings.Trim(b.Name, "[]"))
+	}
+	return strings.Join(n, ", ")
 }
 
 func runTools(args []string) error {

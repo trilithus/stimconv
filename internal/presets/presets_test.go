@@ -1,6 +1,7 @@
 package presets
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,7 +16,8 @@ func TestRoundTrip(t *testing.T) {
 	if err := Save("mine", c); err != nil {
 		t.Fatal(err)
 	}
-	if got := List(); len(got) != 2 || got[0] != Default || got[1] != "mine" {
+	nb := len(Builtins)
+	if got := List(); len(got) != nb+1 || got[0] != Default || got[nb] != "mine" {
 		t.Fatalf("List = %v", got)
 	}
 	l, err := Load("mine")
@@ -25,10 +27,12 @@ func TestRoundTrip(t *testing.T) {
 	if d, _ := Load(Default); d.Gamma != config.Default().Gamma {
 		t.Fatal("default preset not default")
 	}
-	if Save(Default, c) == nil || Delete(Default) == nil {
-		t.Fatal("default preset must be read-only")
+	for _, b := range Builtins {
+		if Save(b.Name, c) == nil || Delete(b.Name) == nil || Save(FolderName(b.Name), c) == nil {
+			t.Fatalf("built-in preset %s must be read-only", b.Name)
+		}
 	}
-	if err := Delete("mine"); err != nil || len(List()) != 1 {
+	if err := Delete("mine"); err != nil || len(List()) != nb {
 		t.Fatal("delete failed")
 	}
 }
@@ -45,7 +49,45 @@ func TestValidateName(t *testing.T) {
 			t.Errorf("%q accepted", bad)
 		}
 	}
-	if FolderName(Default) != "default" || FolderName("my-preset") != "my-preset" || FolderName("bad name") != "default" {
+	if FolderName(Default) != "tri-original" || FolderName("[tri-original]") != "tri-original" ||
+		FolderName("my-preset") != "my-preset" || FolderName("bad name") != "tri-original" {
 		t.Error("FolderName")
+	}
+}
+
+// The built-ins differ only in what they are meant to: topology, the
+// original (abs, gamma 1, no circuit, current) vs normalized (p99, gamma
+// 0.85, circuit, effective) volume, and the beat imitation of tri-original.
+func TestBuiltins(t *testing.T) {
+	if c, _ := Load(Default); !reflect.DeepEqual(c, config.Default()) {
+		t.Errorf("default built-in %s differs from config.Default", Default)
+	}
+	for _, c := range []struct {
+		name, topology, normalize, intensity, ifc string
+		gamma                                     float64
+		circuit                                   bool
+	}{
+		{"[quad-original]", "dual", "abs", "current", "beat", 1, false},
+		{"[quad-normalized]", "dual", "p99", "effective", "beat", 0.85, true},
+		{"[tri-original]", "joined", "abs", "current", "beat", 1, false},
+		{"[tri-original-smooth]", "joined", "abs", "current", "off", 1, false},
+		{"[tri-normalized]", "joined", "p99", "effective", "beat", 0.85, true},
+	} {
+		b, ok := Lookup(c.name)
+		if !ok {
+			t.Errorf("%s missing", c.name)
+			continue
+		}
+		g := b.Config()
+		if g.Topology != c.topology || g.Normalize != c.normalize || g.Intensity != c.intensity || g.IFC != c.ifc ||
+			g.Gamma != c.gamma || g.Circuit.Enabled != c.circuit || g.RefLevel != 0 || g.Validate() != nil {
+			t.Errorf("%s = %+v", c.name, g)
+		}
+		if b.Desc == "" || ValidateName(FolderName(c.name)) == nil {
+			t.Errorf("%s: needs a description and a reserved folder name", c.name)
+		}
+	}
+	if _, ok := Lookup("tri-original"); !ok {
+		t.Error("Lookup without brackets")
 	}
 }

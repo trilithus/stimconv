@@ -78,7 +78,7 @@ func TestBatch(t *testing.T) {
 		t.Fatal("batch did not finish")
 	}
 	for _, d := range []string{"a", "b"} {
-		if _, err := os.Stat(filepath.Join(dir, d, d+".e1.funscript")); err != nil {
+		if _, err := os.Stat(filepath.Join(dir, d, d+".alpha.funscript")); err != nil {
 			t.Errorf("%s: %v", d, err)
 		}
 	}

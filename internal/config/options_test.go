@@ -60,7 +60,13 @@ func TestOptionsGetSetRoundTrip(t *testing.T) {
 		case Bool:
 			o.Set(&c, !o.Get(&c).(bool))
 		case Enum:
-			o.Set(&c, o.Choices[len(o.Choices)-1].Value)
+			// any choice other than the default
+			for _, ch := range o.Choices {
+				if ch.Value != o.Get(&d) {
+					o.Set(&c, ch.Value)
+					break
+				}
+			}
 		}
 		if o.Get(&c) == o.Get(&d) {
 			t.Errorf("%s: Set had no effect or leaked into another config", o.Key)

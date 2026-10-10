@@ -58,7 +58,12 @@ options, output.
 
 Beginners see the output type and a few basic options. **Expert mode** shows
 every setting, grouped, each with a short explanation and a reset button.
-Presets are stored as `--config`-compatible JSON. The default output folder is
+Five built-in presets cover the common cases: `[tri-original]` (the
+default) and `[quad-original]` reproduce the recorded level as-is,
+`[tri-original-smooth]` does so without imitating the beat between different
+carriers, and `[quad-normalized]` / `[tri-normalized]` scale every track to
+the full volume range (CLI: `--preset tri-original`). Your own presets are
+stored as `--config`-compatible JSON. The default output folder is
 `<input name>` next to the input; tick **Add preset to folder name** (CLI
 `--preset-suffix`) for `<input name>.<preset>`.
 

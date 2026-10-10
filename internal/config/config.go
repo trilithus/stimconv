@@ -64,7 +64,9 @@ type Config struct {
 	// derating (the FOC maximum carrier, clipped by restim's safety limits).
 	RefCarrierHz float64 `json:"ref_carrier_hz"`
 	// Normalize: "peak", "p99" or "abs" (divide by RefLevel).
-	Normalize string  `json:"normalize"`
+	Normalize string `json:"normalize"`
+	// RefLevel is the abs level mapped to volume 1; 0 = auto: the level of
+	// full-scale audio (see mapping.RefLevel).
 	RefLevel  float64 `json:"ref_level"`
 	Gamma     float64 `json:"gamma"`
 	SilenceDB float64 `json:"silence_db"` // below track max -> silence
@@ -87,11 +89,16 @@ var FOCLimits = map[string]Range{
 	"pulse_interval_random": {0, 1},
 }
 
-// Default returns the default configuration. Ranges default to restim's
-// funscript kit defaults (qt_ui/models/funscript_kit.py).
+// Default returns the default configuration, the "original" settings: the
+// volume follows the audio's peak level as recorded (abs against full scale,
+// gamma 1, no circuit model, plain peak current). Listening tests found that
+// the circuit model and effective intensity over-weight square waves, which
+// unbalanced tracks mixing waveforms. presets.Builtins derives the other
+// built-in presets from it. Ranges default to restim's funscript kit
+// defaults (qt_ui/models/funscript_kit.py).
 func Default() Config {
 	return Config{
-		Topology:          "dual",
+		Topology:          "joined",
 		Overlap:           "auto",
 		MuxHz:             4,
 		AutoCorr:          0.7,
@@ -101,18 +108,18 @@ func Default() Config {
 		FusionHz:          12,
 		ContinuousPulseHz: 100,
 		IFC:               "beat",
-		Intensity:         "effective",
+		Intensity:         "current",
 		TauUS:             355,
 		RefCarrierHz:      2000,
-		Normalize:         "p99",
-		RefLevel:          1,
-		Gamma:             0.85,
+		Normalize:         "abs",
+		RefLevel:          0,
+		Gamma:             1,
 		SilenceDB:         -40,
 		ModSplitHz:        3,
 		StepMS:            10,
 		Epsilon:           0.5,
 		Circuit: Circuit{
-			Enabled:  true,
+			Enabled:  false,
 			AmpVPeak: 12,
 			SeriesR:  3.9,
 			WindingR: 1.0,
@@ -189,6 +196,9 @@ func (c Config) Validate() error {
 		if r, ok := c.Ranges[k]; !ok || r.Max <= r.Min {
 			return fmt.Errorf("invalid range for %s", k)
 		}
+	}
+	if c.RefLevel < 0 {
+		return fmt.Errorf("ref_level must be >= 0 (0 = auto)")
 	}
 	if c.StepMS <= 0 || c.ModSplitHz <= 0 || c.Gamma <= 0 {
 		return fmt.Errorf("step_ms, mod_split_hz and gamma must be > 0")

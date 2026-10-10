@@ -149,8 +149,8 @@ func TestReadme(t *testing.T) {
 		"restim " + RestimVersion, "FOC-Stim firmware " + FOCStimVersion,
 		"| Device wizard | Device type | FOC-Stim 3-phase |",
 		"| Preset | soft |",
-		"| `topology` | joined | no (default dual) |",
-		"| `gamma` | 1.5 | no (default 0.85) |",
+		"| `topology` | joined | yes |",
+		"| `gamma` | 1.5 | no (default 1) |",
 		"| `overlap` | auto (not used) | yes |", // dual-only option, topology is joined
 		"| `ifc` | beat | yes |",
 		"| `ranges.frequency.min` | 500 | yes |",
@@ -200,6 +200,7 @@ func TestReadme(t *testing.T) {
 
 func TestRestimSettings(t *testing.T) {
 	cfg := config.Default()
+	cfg.Intensity = "effective" // tau-matched volume
 	axes := []*funscript.Axis{
 		{Name: "frequency", Min: 300, Max: 2000, Values: []float64{250, 800, 2000}},
 		{Name: "pulse_frequency", Min: 0, Max: 100, Values: []float64{20}},
@@ -223,6 +224,14 @@ func TestRestimSettings(t *testing.T) {
 			t.Errorf("%s missing", name)
 		} else if s.Change != change {
 			t.Errorf("%s: change = %v, want %v (%+v)", name, s.Change, change, s)
+		}
+	}
+	// with plain peak current the volume is the recorded level, so restim's
+	// carrier derating must be off (tau 0)
+	cur := config.Default()
+	for _, s := range RestimSettings(cur, axes) {
+		if s.Name == "Nerve time constant [µs]" && (!s.Change || !strings.HasPrefix(s.Need, "0 ")) {
+			t.Errorf("current intensity: tau row %+v, want 0 and a change", s)
 		}
 	}
 	if s := got["Minimum frequency [Hz]"]; s.Need != "300 or lower" {
