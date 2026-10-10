@@ -40,6 +40,14 @@ type Options struct {
 	DryRun       bool   // analyse only, write no funscripts
 	Stats        bool   // print per-axis statistics
 	NativeMP3    bool   // decode Layer III with go-mp3 instead of ffmpeg
+	// OverwriteFiles allows replacing existing output files and deleting
+	// stale funscripts (see Conflicts). Without it Convert asks Confirm, or
+	// fails with an *ExistingFilesError when Confirm is nil.
+	OverwriteFiles bool
+	// Confirm is asked, before anything is written, whether the listed
+	// existing files may be overwritten or deleted. false skips the input
+	// with ErrDeclined.
+	Confirm func([]Conflict) bool
 	// AudioTrack picks an audio stream in video/container files, numbered
 	// from 1 (decode.Track.Index+1); 0 uses the default track.
 	AudioTrack int
@@ -206,8 +214,22 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 		}
 	}
 	base := OutBase(in, o.OutName)
-	var written []writtenAxis
+	readme := filepath.Join(dir, ReadmeName(in, o.OutName, o.OutDir == "" && o.Subfolder))
 	wroteAxis := map[string]bool{}
+	for _, a := range res.Axes {
+		wroteAxis[a.Name] = true
+	}
+	if !o.DryRun && !o.OverwriteFiles {
+		if c := conflicts(dir, base, readme, res.Axes, wroteAxis); len(c) > 0 {
+			if o.Confirm == nil {
+				return out, &ExistingFilesError{Conflicts: c}
+			}
+			if !o.Confirm(c) {
+				return out, ErrDeclined
+			}
+		}
+	}
+	var written []writtenAxis
 	for _, a := range res.Axes {
 		acts := a.Actions(cfg.Epsilon)
 		path := filepath.Join(dir, base+"."+a.Name+".funscript")
@@ -224,7 +246,6 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 			acts = s.Actions
 		}
 		written = append(written, writtenAxis{Name: a.Name, Actions: acts})
-		wroteAxis[a.Name] = true
 		if o.Stats {
 			printStats(log, a, len(acts))
 		}
@@ -261,7 +282,6 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 		if err != nil {
 			fmt.Fprintln(log, "warning:", err)
 		}
-		readme := filepath.Join(dir, ReadmeName(in, o.OutName, o.OutDir == "" && o.Subfolder))
 		preset := o.Preset
 		if preset == "" {
 			preset = "default"
@@ -277,26 +297,83 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 	return out, nil
 }
 
-// removeStale deletes <base>.<axis>.funscript in dir for every axis stimconv
-// can write (config ranges) that this run did not write, e.g. e1-e4 left
-// from a quad-phase run when this one is tri-phase. restim would otherwise
-// load them alongside the new files. Other funscripts are left alone.
-func removeStale(dir, base string, wrote map[string]bool) ([]string, error) {
+// staleFiles lists the existing <base>.<axis>.funscript files in dir for
+// axes stimconv can write (config ranges) that are not in wrote.
+func staleFiles(dir, base string, wrote map[string]bool) []string {
 	var axes []string
 	for k := range config.Default().Ranges {
 		axes = append(axes, k)
 	}
 	sort.Strings(axes)
-	var removed []string
-	var errs []error
+	var stale []string
 	for _, ax := range axes {
 		if wrote[ax] {
 			continue
 		}
 		p := filepath.Join(dir, base+"."+ax+".funscript")
-		if st, err := os.Lstat(p); err != nil || !st.Mode().IsRegular() {
-			continue
+		if st, err := os.Lstat(p); err == nil && st.Mode().IsRegular() {
+			stale = append(stale, p)
 		}
+	}
+	return stale
+}
+
+// Conflict is an existing file a conversion would overwrite or delete.
+type Conflict struct {
+	Path   string
+	Delete bool // a stale funscript that would be removed, else overwritten
+}
+
+func (c Conflict) String() string {
+	if c.Delete {
+		return filepath.Base(c.Path) + " (delete)"
+	}
+	return filepath.Base(c.Path) + " (overwrite)"
+}
+
+// ErrDeclined is returned when Options.Confirm refused to touch existing files.
+var ErrDeclined = errors.New("existing files kept; input skipped")
+
+// ExistingFilesError reports existing files a conversion would overwrite or
+// delete without Options.OverwriteFiles.
+type ExistingFilesError struct{ Conflicts []Conflict }
+
+func (e *ExistingFilesError) Error() string {
+	n := make([]string, len(e.Conflicts))
+	for i, c := range e.Conflicts {
+		n[i] = c.String()
+	}
+	return fmt.Sprintf("%d existing file(s) would be overwritten or deleted in %s: %s",
+		len(e.Conflicts), filepath.Dir(e.Conflicts[0].Path), strings.Join(n, ", "))
+}
+
+// conflicts lists the existing files a conversion into dir would overwrite
+// (its funscripts and report) or delete (stale funscripts).
+func conflicts(dir, base, readme string, axes []*funscript.Axis, wrote map[string]bool) []Conflict {
+	var c []Conflict
+	for _, a := range axes {
+		p := filepath.Join(dir, base+"."+a.Name+".funscript")
+		if _, err := os.Lstat(p); err == nil {
+			c = append(c, Conflict{Path: p})
+		}
+	}
+	if _, err := os.Lstat(readme); err == nil {
+		c = append(c, Conflict{Path: readme})
+	}
+	for _, p := range staleFiles(dir, base, wrote) {
+		c = append(c, Conflict{Path: p, Delete: true})
+	}
+	return c
+}
+
+// removeStale deletes <base>.<axis>.funscript in dir for every axis stimconv
+// can write (config ranges) that this run did not write, e.g. e1-e4 left
+// from a quad-phase run when this one is tri-phase. restim would otherwise
+// load them alongside the new files. Other funscripts are left alone.
+func removeStale(dir, base string, wrote map[string]bool) ([]string, error) {
+	var removed []string
+	var errs []error
+	for _, p := range staleFiles(dir, base, wrote) {
 		if err := os.Remove(p); err != nil {
 			errs = append(errs, fmt.Errorf("could not remove %s: %w", filepath.Base(p), err))
 			continue

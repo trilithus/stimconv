@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -102,6 +103,7 @@ func run(args []string) error {
 	emit := fs.String("emit-config", "", "write the effective config as JSON to this path")
 	outDir := fs.String("o", "", "output directory (default: the input's folder; see --subfolder and --name)")
 	outName := fs.String("name", "", "output name instead of the input name without extension, e.g. PEP11 for PEP11.fr.mp3 -> PEP11.alpha.funscript (also names the default folder)")
+	overwrite := fs.Bool("overwrite-files", false, "allow overwriting existing output files and deleting funscripts a previous run with other options wrote; without it the run aborts if any exist")
 	subfolder := fs.Bool("subfolder", false, "write into a folder next to the input named <output name> (with --preset-suffix: <output name>.<preset>) instead of next to the input")
 	presetSuffix := fs.Bool("preset-suffix", false, "with --subfolder: name the folder <output name>.<preset> (preset = --preset, else the --config file name, else "+presets.DefaultName+")")
 	stats := fs.Bool("stats", false, "print per-axis statistics")
@@ -176,8 +178,12 @@ func run(args []string) error {
 
 	_, err := pipeline.Convert(context.Background(), cfg, pipeline.Options{
 		Input: in, OutDir: *outDir, OutName: *outName, Preset: presetName(args), Subfolder: *subfolder, PresetSuffix: *presetSuffix, DumpCSV: *dump, DryRun: *dry, Stats: *stats, NativeMP3: *nativeMP3,
-		AudioTrack: *audioTrack,
+		AudioTrack: *audioTrack, OverwriteFiles: *overwrite,
 	}, os.Stdout)
+	var ef *pipeline.ExistingFilesError
+	if errors.As(err, &ef) {
+		return fmt.Errorf("%w; nothing was written. Rerun with --overwrite-files to overwrite or delete them", err)
+	}
 	return err
 }
 

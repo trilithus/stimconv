@@ -244,11 +244,15 @@ carrier, pulse rate, width and rise.
 | `--name name` | Output name instead of the input name without its extension, e.g. `--name PEP11` turns `PEP11.fr.mp3` into `PEP11.alpha.funscript`. It also names the default folder and, with `-o`, the `.md` report. In the GUI, tick **Output name** below the output folder. |
 | `--preset-suffix` | With `--subfolder`: name the folder `<output name>.<preset>`; the preset is `--preset`, else the `--config` file name, else `tri-original`. In the GUI, tick **Add preset to folder name**. |
 
+| `--overwrite-files` | Allow overwriting existing output files and deleting stale funscripts (below). Without it, the run aborts before writing anything if any exist, and lists them. The GUI asks instead: **Overwrite**, **Skip**, or in a batch **Overwrite all**. |
+
 Every run removes `<output name>.<axis>.funscript` files in the output folder
 for axes stimconv can write but did not write this time, e.g. `e1`–`e4` left by
 a quad-phase run when converting tri-phase, so restim does not load a stale
 mix. The log lists what was removed. Other files, including funscripts with
-other names, are never touched; a dry run removes nothing.
+other names, are never touched; a dry run removes nothing. Since the output
+goes next to the input by default, this can hit funscripts a release ships
+with, which is why it needs `--overwrite-files` or the GUI's confirmation.
 
 ## Decoding
 

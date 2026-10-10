@@ -18,6 +18,7 @@ import (
 
 	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/decode"
+	"github.com/trilithus/stimconv/internal/pipeline"
 	"github.com/trilithus/stimconv/internal/presets"
 )
 
@@ -60,6 +61,10 @@ type ui struct {
 	rev                       state.Signal[int] // bumped on every option change
 	logLines                  []logEntry
 	cancel                    func()
+
+	// askOverwrite asks whether existing files may be overwritten or
+	// deleted (all = also for the rest of a batch); runs off the UI thread.
+	askOverwrite func(c []pipeline.Conflict, batch bool) (ok, all bool)
 
 	mu    sync.Mutex
 	queue []func()
@@ -107,6 +112,7 @@ func newUI(g *gogpu.App, a *app.App) *ui {
 		stats:       state.NewSignal(false), dryRun: state.NewSignal(false), running: state.NewSignal(false),
 		optScroll: state.NewSignal[float32](0), logScroll: state.NewSignal[float32](0), aboutScroll: state.NewSignal[float32](0),
 		optErr: state.NewSignal(""), rev: state.NewSignal(0),
+		askOverwrite: askOverwrite,
 	}
 }
 

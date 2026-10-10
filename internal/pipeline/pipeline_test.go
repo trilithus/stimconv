@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"math"
 	"os"
 	"os/exec"
@@ -157,8 +158,23 @@ func TestNextToInputAndStaleRemoval(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Topology = "joined"
+	// without permission nothing is touched: an error listing the files,
+	// or ErrDeclined when Confirm says no
+	_, err = Convert(context.Background(), cfg, Options{Input: in}, &bytes.Buffer{})
+	var ef *ExistingFilesError
+	if !errors.As(err, &ef) || !strings.Contains(err.Error(), "track.e1.funscript (delete)") || !strings.Contains(err.Error(), "track.volume.funscript (overwrite)") {
+		t.Fatalf("err = %v, want an ExistingFilesError listing overwrites and deletes", err)
+	}
+	asked := 0
+	_, err = Convert(context.Background(), cfg, Options{Input: in, Confirm: func(c []Conflict) bool { asked = len(c); return false }}, &bytes.Buffer{})
+	if err != ErrDeclined || asked != len(ef.Conflicts) {
+		t.Fatalf("declined: err = %v, asked about %d files, want ErrDeclined and %d", err, asked, len(ef.Conflicts))
+	}
+	if _, err := os.Stat(filepath.Join(dir, "track.e1.funscript")); err != nil {
+		t.Fatalf("a refused run changed files: %v", err)
+	}
 	var log bytes.Buffer
-	if _, err := Convert(context.Background(), cfg, Options{Input: in}, &log); err != nil {
+	if _, err := Convert(context.Background(), cfg, Options{Input: in, OverwriteFiles: true}, &log); err != nil {
 		t.Fatal(err)
 	}
 	for _, ax := range []string{"e1", "e2", "e3", "e4"} {

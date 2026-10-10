@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gogpu/ui/app"
+
+	"github.com/trilithus/stimconv/internal/pipeline"
 )
 
 // writeStimWAV writes a 16-bit stereo 650 Hz square with 20 Hz bursts.
@@ -97,5 +99,49 @@ func TestBatch(t *testing.T) {
 	u.setInput(a)
 	if u.inputs != nil {
 		t.Error("still in batch mode")
+	}
+}
+
+// Re-converting asks before overwriting: "Skip" keeps a file's output,
+// "Overwrite all" answers for the rest of the batch.
+func TestOverwritePrompt(t *testing.T) {
+	dir := t.TempDir()
+	in := []string{filepath.Join(dir, "a.wav"), filepath.Join(dir, "b.wav"), filepath.Join(dir, "c.wav")}
+	for _, p := range in {
+		writeStimWAV(t, p, 3)
+	}
+	appl := app.New()
+	u := newUI(nil, appl)
+	appl.SetRoot(u.build())
+	var asked []string
+	answers := [][2]bool{{false, false}, {true, true}} // skip a, then overwrite all
+	u.askOverwrite = func(c []pipeline.Conflict, batch bool) (bool, bool) {
+		if !batch {
+			t.Error("a batch must offer Overwrite all")
+		}
+		a := answers[min(len(asked), len(answers)-1)]
+		asked = append(asked, filepath.Base(c[0].Path))
+		return a[0], a[1]
+	}
+	run := func() {
+		u.setInputs(in)
+		if !pump(u, 20*time.Second, func() bool { return !strings.Contains(u.info.Get(), "checking") }) {
+			t.Fatal("probe did not finish")
+		}
+		u.startOrCancel()
+		if !pump(u, 60*time.Second, func() bool { return !u.running.Get() }) {
+			t.Fatal("batch did not finish")
+		}
+	}
+	run() // fresh: nothing to ask
+	if len(asked) != 0 {
+		t.Fatalf("asked %v on a fresh folder", asked)
+	}
+	run()
+	if len(asked) != 2 || !strings.HasPrefix(asked[0], "a.") || !strings.HasPrefix(asked[1], "b.") {
+		t.Errorf("asked about %v, want a then b (c covered by Overwrite all)", asked)
+	}
+	if st := u.status.Get(); !strings.Contains(st, "2 of 3 converted, 1 skipped") {
+		t.Errorf("status = %q", st)
 	}
 }

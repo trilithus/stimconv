@@ -67,7 +67,9 @@ stored as `--config`-compatible JSON. The funscripts are written next to the
 input; tick **Write to a sub-folder** (CLI `--subfolder`) for a folder
 `<input name>`, and **Add preset to folder name** (`--preset-suffix`) for
 `<input name>.<preset>`. Funscripts left by an earlier run with other options
-(e.g. `e1`–`e4` after switching to tri-phase) are removed.
+(e.g. `e1`–`e4` after switching to tri-phase) are removed. Before
+overwriting or deleting any existing file, the GUI asks; the CLI aborts unless
+`--overwrite-files` is given.
 
 <a href="docs/images/expert.png"><img src="docs/images/expert.png" alt="Expert mode" width="384"></a>
 

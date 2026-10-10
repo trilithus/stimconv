@@ -2,6 +2,7 @@ package gui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/trilithus/stimconv/internal/analysis"
 	"os"
@@ -450,9 +451,19 @@ func (u *ui) startOrCancel() {
 	u.cancel = cancel
 	u.running.Set(true)
 	n := len(inputs)
+	ask := u.askOverwrite
 	go func() {
 		var failed []string
-		done := 0
+		done, skipped := 0, 0
+		overwriteAll := false
+		base.Confirm = func(c []pipeline.Conflict) bool {
+			if overwriteAll {
+				return true
+			}
+			ok, all := ask(c, n > 1)
+			overwriteAll = all
+			return ok || all
+		}
 		for i, in := range inputs {
 			if ctx.Err() != nil {
 				break
@@ -470,6 +481,9 @@ func (u *ui) startOrCancel() {
 			res, err := pipeline.Convert(ctx, cfg, opts, logWriter{u})
 			switch {
 			case err == context.Canceled:
+			case errors.Is(err, pipeline.ErrDeclined):
+				skipped++
+				u.post(func() { u.logf("warning: skipped %s: existing files kept", filepath.Base(in)) })
 			case err != nil:
 				failed = append(failed, filepath.Base(in))
 				u.post(func() { u.logf("error: %v", err) })
@@ -481,7 +495,7 @@ func (u *ui) startOrCancel() {
 			}
 		}
 		cancel()
-		cancelled := ctx.Err() == context.Canceled && done+len(failed) < n
+		cancelled := ctx.Err() == context.Canceled && done+len(failed)+skipped < n
 		u.post(func() {
 			u.running.Set(false)
 			u.cancel = nil
@@ -491,11 +505,15 @@ func (u *ui) startOrCancel() {
 				u.logf("warning: cancelled")
 			case len(failed) > 0 && n == 1:
 				u.status.Set("Failed")
+			case skipped > 0 && n == 1:
+				u.status.Set("Skipped — existing files kept")
 			case len(failed) > 0:
 				u.status.Set(fmt.Sprintf("Done — %d of %d converted, %d failed", done, n, len(failed)))
 				u.logf("error: failed: %s", strings.Join(failed, ", "))
 			case base.DryRun:
 				u.status.Set("Analysis done")
+			case n > 1 && skipped > 0:
+				u.status.Set(fmt.Sprintf("Done — %d of %d converted, %d skipped", done, n, skipped))
 			case n > 1:
 				u.status.Set(fmt.Sprintf("Done — all %d files converted", n))
 			}
@@ -504,6 +522,35 @@ func (u *ui) startOrCancel() {
 			}
 		})
 	}()
+}
+
+// askOverwrite shows a native confirmation dialog listing the existing files
+// a conversion would overwrite or delete. In a batch it also offers
+// "Overwrite all". A dialog that cannot be shown counts as "skip".
+func askOverwrite(c []pipeline.Conflict, batch bool) (ok, all bool) {
+	const maxList = 12
+	lines := make([]string, 0, maxList+1)
+	for i, f := range c {
+		if i == maxList {
+			lines = append(lines, fmt.Sprintf("… and %d more", len(c)-maxList))
+			break
+		}
+		lines = append(lines, "  "+f.String())
+	}
+	text := fmt.Sprintf("These existing files in %s would be overwritten or deleted:\n\n%s\n\nDeleted files are funscripts a previous run with other options wrote.",
+		filepath.Dir(c[0].Path), strings.Join(lines, "\n"))
+	opts := []zenity.Option{zenity.Title("Overwrite existing files?"), zenity.Icon(zenity.WarningIcon),
+		zenity.OKLabel("Overwrite"), zenity.CancelLabel("Skip"), zenity.DefaultCancel()}
+	if batch {
+		opts = append(opts, zenity.ExtraButton("Overwrite all"))
+	}
+	switch err := zenity.Question(text, opts...); err {
+	case nil:
+		return true, false
+	case zenity.ErrExtraButton:
+		return true, true
+	}
+	return false, false
 }
 
 // duplicateTargets lists inputs whose funscripts would land on the same
