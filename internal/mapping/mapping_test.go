@@ -189,6 +189,7 @@ func TestEffectiveIntensityMatchesAcrossCarriers(t *testing.T) {
 	cfg.Circuit.Enabled = false
 	cfg.Normalize = "abs"
 	cfg.RefLevel = 4 // keep below clipping
+	cfg.Gamma = 1    // compare linear volumes
 	sq := run(t, 2, cfg, func(t float64) (float64, float64) {
 		v := 0.5 * math.Copysign(1, math.Sin(2*math.Pi*650*t))
 		return v, v

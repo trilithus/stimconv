@@ -106,7 +106,7 @@ func Default() Config {
 		RefCarrierHz:      2000,
 		Normalize:         "p99",
 		RefLevel:          1,
-		Gamma:             1,
+		Gamma:             0.85,
 		SilenceDB:         -40,
 		ModSplitHz:        3,
 		StepMS:            10,

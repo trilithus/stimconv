@@ -22,7 +22,7 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil || l.Topology != "joined" || l.Gamma != 2 {
 		t.Fatalf("Load = %+v, %v", l, err)
 	}
-	if d, _ := Load(Default); d.Gamma != 1 {
+	if d, _ := Load(Default); d.Gamma != config.Default().Gamma {
 		t.Fatal("default preset not default")
 	}
 	if Save(Default, c) == nil || Delete(Default) == nil {

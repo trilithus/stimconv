@@ -114,7 +114,7 @@ func TestReadme(t *testing.T) {
 		"| Device wizard | Device type | FOC-Stim 3-phase |",
 		"| Preset | soft |",
 		"| `topology` | joined | no (default dual) |",
-		"| `gamma` | 1.5 | no (default 1) |",
+		"| `gamma` | 1.5 | no (default 0.85) |",
 		"| `overlap` | auto (not used) | yes |", // dual-only option, topology is joined
 		"| `ifc` | beat | yes |",
 		"| `ranges.frequency.min` | 500 | yes |",
