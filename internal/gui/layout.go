@@ -96,6 +96,7 @@ func (u *ui) inputSection() widget.Widget {
 			btn("Browse…", button.Tonal, u.browseInput),
 		).Gap(8).CrossAlign(primitives.CrossAxisCenter),
 		newWrapLabel(u.info.Get, 12, colMuted, 200),
+		newWrapLabel(u.guidance.Get, 12, colText, 200),
 		newWrapLabel(u.contentWarn.Get, 12, colWarn, 200),
 	}
 	if len(u.inputs) > 0 {

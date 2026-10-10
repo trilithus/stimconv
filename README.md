@@ -37,9 +37,10 @@ current.
 - **Explicit A/B strategies.** FOC-Stim has one carrier and one pulse train.
   Every rule for resolving A/B conflicts (overlap, parameter merge, rhythm
   rendering, interferential beat) can be selected.
-- **restim-consistent intensity.** Volume is strength-duration matched and
-  stays exactly consistent with restim's tau calibration, so restim keeps the
-  perceived intensity when it changes the carrier.
+- **Volume as recorded, or normalized.** By default the volume follows the
+  recorded peak level as-is. The `*-normalized` presets scale each track to the
+  full range instead, with strength-duration matched intensity that stays
+  consistent with restim's tau calibration.
 - **FOC-Stim limits enforced.** Carrier 300–2000 Hz, pulse rate 1–100 Hz,
   width 3–20 cycles (at most 35 ms), rise 2–10 cycles. Out-of-range data is
   reported, with suggested funscript kit ranges.
@@ -53,6 +54,12 @@ current.
 
 Run `stimconv` without arguments. The window follows the conversion: input,
 options, output.
+
+After you pick a file, a line under its name says whether it looks like a stim
+drive signal (or warns when it looks like music or speech), and, after a
+background pass over the whole file, whether it was likely made for tri-phase
+(the phase between A and B carries position) or quad-phase (A and B carry
+separate content), and which preset fits.
 
 ### Options and presets
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/ncruces/zenity"
 
+	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/decode"
 	"github.com/trilithus/stimconv/internal/pipeline"
 	"github.com/trilithus/stimconv/internal/presets"
@@ -166,21 +167,74 @@ func (u *ui) setInput(p string) {
 		return
 	}
 	u.info.Set("Checking " + filepath.Base(p) + " …")
-	u.contentWarn.Set("")
+	u.clearGuidance()
 	gen := u.selGen
 	go func() {
 		msg, tracks := probeInput(p)
-		warn := contentWarning(p, 0, tracks)
 		u.post(func() {
 			if u.selGen != gen {
 				return
 			}
 			u.info.Set(msg)
-			u.contentWarn.Set(warn)
 			if len(tracks) > 1 {
 				u.tracks, u.track = tracks, 0
 				u.rebuild()
 			}
+			u.checkContent(p, 0, tracks)
+		})
+	}()
+}
+
+// clearGuidance drops the content and wiring hints and stops a running
+// wiring analysis.
+func (u *ui) clearGuidance() {
+	u.contentWarn.Set("")
+	u.guidance.Set("")
+	if u.wiringCancel != nil {
+		u.wiringCancel()
+		u.wiringCancel = nil
+	}
+}
+
+// checkContent runs the quick stim/music check on a track and, for a drive
+// signal, the whole-file wiring analysis in the background, showing both
+// under the file name. A newer selection discards (and stops) them.
+func (u *ui) checkContent(p string, track int, tracks []decode.Track) {
+	u.clearGuidance()
+	if len(tracks) == 0 {
+		return // not decodable; probeInput already says so
+	}
+	u.selGen++
+	gen := u.selGen
+	ctx, cancel := context.WithCancel(context.Background())
+	u.wiringCancel = cancel
+	u.guidance.Set("Checking the content …")
+	go func() {
+		stim, warn := contentCheck(p, track)
+		u.post(func() {
+			if u.selGen != gen {
+				return
+			}
+			u.contentWarn.Set(warn)
+			if !stim {
+				u.guidance.Set("")
+				return
+			}
+			u.guidance.Set("Looks like a stim drive signal. Checking whether it was made for tri-phase or quad-phase (whole file) …")
+		})
+		if !stim {
+			return
+		}
+		w, err := wiringCheck(ctx, p, track)
+		u.post(func() {
+			if u.selGen != gen || ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				u.guidance.Set("Looks like a stim drive signal. (Wiring check failed: " + err.Error() + ")")
+				return
+			}
+			u.guidance.Set("Looks like a stim drive signal. " + wiringGuidance(w))
 		})
 	}()
 }
@@ -211,13 +265,13 @@ func (u *ui) setInputs(paths []string) {
 		lines[i] = filepath.Base(p) + " — checking …"
 	}
 	u.info.Set(capLines(lines, 8))
-	u.contentWarn.Set("")
+	u.clearGuidance()
 	u.rebuild()
 	go func() {
 		var warns []string
 		for i, p := range list {
 			msg, tracks := probeInput(p)
-			if w := contentWarning(p, 0, tracks); w != "" {
+			if _, w := contentCheck(p, 0); len(tracks) > 0 && w != "" {
 				warns = append(warns, filepath.Base(p)+": "+strings.TrimPrefix(w, "⚠ "))
 			}
 			line, ws := filepath.Base(p)+" — "+msg, append([]string(nil), warns...)
@@ -251,32 +305,71 @@ func prefixAll(p string, ss []string) []string {
 	return out
 }
 
-// selectTrack switches the audio track and re-runs the content check.
+// selectTrack switches the audio track and re-runs the content checks.
 func (u *ui) selectTrack(track int) {
 	u.track = track
-	p, tracks := u.input.Get(), u.tracks
-	u.contentWarn.Set("")
-	go func() {
-		warn := contentWarning(p, track, tracks)
-		u.post(func() {
-			if u.input.Get() == p && u.track == track {
-				u.contentWarn.Set(warn)
-			}
-		})
-	}()
+	u.checkContent(u.input.Get(), track, u.tracks)
 }
 
-// contentWarning runs the stim/music check on the given track when the
-// file decodes; it returns "" for drive signals and undecodable files.
-func contentWarning(p string, track int, tracks []decode.Track) string {
-	if len(tracks) == 0 {
-		return ""
-	}
+// contentCheck runs the quick stim/music check on a track. stim is true for
+// a drive signal; warn explains otherwise. An undecodable file gives
+// neither (probeInput reports it).
+func contentCheck(p string, track int) (stim bool, warn string) {
 	c, err := analysis.CheckFile(p, decode.Options{AudioTrack: track}, pipeline.CheckSeconds)
-	if err != nil || c.Kind == analysis.KindStim {
-		return ""
+	if err != nil {
+		return false, ""
 	}
-	return "⚠ " + strings.ToUpper(c.String()[:1]) + c.String()[1:] + ". The conversion assumes an amplifier drive signal; music or speech will give a meaningless result."
+	if c.Kind == analysis.KindStim {
+		return true, ""
+	}
+	return false, "⚠ " + strings.ToUpper(c.String()[:1]) + c.String()[1:] + ". The conversion assumes an amplifier drive signal; music or speech will give a meaningless result."
+}
+
+// wiringCheck runs the A/B wiring analysis over the whole track (audio as
+// is, no circuit model). ctx stops it early.
+func wiringCheck(ctx context.Context, p string, track int) (analysis.Wiring, error) {
+	src, _, err := decode.Open(p, decode.Options{AudioTrack: track})
+	if err != nil {
+		return analysis.Wiring{}, err
+	}
+	defer src.Close()
+	raw, err := analysis.Measure(ctxSource{src, ctx}, config.Circuit{})
+	if err != nil {
+		return analysis.Wiring{}, err
+	}
+	return analysis.AnalyseWiring(raw), nil
+}
+
+// ctxSource stops a decode.Source when ctx is done.
+type ctxSource struct {
+	decode.Source
+	ctx context.Context
+}
+
+func (s ctxSource) Read(dst []float32) (int, error) {
+	if err := s.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return s.Source.Read(dst)
+}
+
+// wiringGuidance turns a wiring verdict into a hint about which built-in
+// presets fit.
+func wiringGuidance(w analysis.Wiring) string {
+	pct := func(f float64) string { return fmt.Sprintf("%.0f%%", 100*f) }
+	switch w.Verdict {
+	case analysis.WiringThree:
+		return "Likely made for tri-phase: the phase between A and B carries position (" + pct(w.Phased) + " of the track), which only a shared common electrode turns into a sensation. Use a tri-phase preset, e.g. [tri-original]."
+	case analysis.WiringFour:
+		return "Likely made for quad-phase (two separate pairs): A and B carry separate content (" + pct(w.EnvDiff+w.OneSided) + " of the track). Use a quad-phase preset, e.g. [quad-original]."
+	case analysis.WiringMono:
+		return "Tri-phase and quad-phase both fit: A and B carry the same signal (" + pct(w.Mono) + " of the track)."
+	case analysis.WiringDetuned:
+		return "Tri-phase and quad-phase both fit: A and B use different carriers (" + pct(w.Detuned) + " of the track); tri-phase plays them as a beat, quad-phase as two separate sensations."
+	case analysis.WiringMixed:
+		return "Wiring unclear: no dominant A/B pattern; either tri-phase or quad-phase may fit."
+	}
+	return "Too little signal to tell whether it was made for tri-phase or quad-phase."
 }
 
 // outNameValue is the output name override, "" when it is off.

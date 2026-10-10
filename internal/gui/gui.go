@@ -54,6 +54,8 @@ type ui struct {
 	presetSuffix              state.Signal[bool] // that folder ends in .<preset>
 	info, status              state.Signal[string]
 	contentWarn               state.Signal[string] // stim/music check of the input
+	guidance                  state.Signal[string] // stim and wiring hint for the input
+	wiringCancel              func()               // stops the running wiring check
 	stats, dryRun, running    state.Signal[bool]
 	optScroll, logScroll      state.Signal[float32]
 	aboutScroll               state.Signal[float32]
@@ -106,10 +108,10 @@ func newUI(g *gogpu.App, a *app.App) *ui {
 		gapp: g, app: a, cfg: config.Default(), preset: presets.Default,
 		input: state.NewSignal(""), outDir: state.NewSignal(""), presetName: state.NewSignal(""),
 		outName: state.NewSignal(""), outNameOn: state.NewSignal(false), presetSuffix: state.NewSignal(false), subfolder: state.NewSignal(false),
-		contentWarn: state.NewSignal(""),
-		info:        state.NewSignal("No input selected — browse or drop an audio file onto the window."),
-		status:      state.NewSignal("Ready"),
-		stats:       state.NewSignal(false), dryRun: state.NewSignal(false), running: state.NewSignal(false),
+		contentWarn: state.NewSignal(""), guidance: state.NewSignal(""),
+		info:   state.NewSignal("No input selected — browse or drop an audio file onto the window."),
+		status: state.NewSignal("Ready"),
+		stats:  state.NewSignal(false), dryRun: state.NewSignal(false), running: state.NewSignal(false),
 		optScroll: state.NewSignal[float32](0), logScroll: state.NewSignal[float32](0), aboutScroll: state.NewSignal[float32](0),
 		optErr: state.NewSignal(""), rev: state.NewSignal(0),
 		askOverwrite: askOverwrite,
