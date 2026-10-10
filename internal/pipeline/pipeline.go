@@ -27,12 +27,15 @@ type Options struct {
 	// OutName replaces the input name (without extension) in the output
 	// names, e.g. "PEP11" for PEP11.fr.mp3 -> PEP11.alpha.funscript.
 	// "" uses the input name; see ValidateOutName.
-	OutName   string
-	Preset    string // names the default output folder; "" = "default"
-	DumpCSV   string // per-hop features CSV, empty = off
-	DryRun    bool   // analyse only, write no funscripts
-	Stats     bool   // print per-axis statistics
-	NativeMP3 bool   // decode Layer III with go-mp3 instead of ffmpeg
+	OutName string
+	Preset  string // names the default output folder; "" = "default"
+	// NoPresetSuffix leaves the preset out of the default output folder:
+	// "track" instead of "track.default".
+	NoPresetSuffix bool
+	DumpCSV        string // per-hop features CSV, empty = off
+	DryRun         bool   // analyse only, write no funscripts
+	Stats          bool   // print per-axis statistics
+	NativeMP3      bool   // decode Layer III with go-mp3 instead of ffmpeg
 	// AudioTrack picks an audio stream in video/container files, numbered
 	// from 1 (decode.Track.Index+1); 0 uses the default track.
 	AudioTrack int
@@ -40,12 +43,26 @@ type Options struct {
 
 // DefaultOutDir is the output folder used when none is given: a folder next
 // to the input named after the output name (see OutBase) and the preset,
-// e.g. "track.default". preset must already be a safe folder name.
+// e.g. "track.default", or just "track" when preset is "". preset must
+// already be a safe folder name.
 func DefaultOutDir(input, outName, preset string) string {
-	if preset == "" {
-		preset = "default"
+	name := OutBase(input, outName)
+	if preset != "" {
+		name += "." + preset
 	}
-	return filepath.Join(filepath.Dir(input), OutBase(input, outName)+"."+preset)
+	return filepath.Join(filepath.Dir(input), name)
+}
+
+// FolderPreset is the preset part of the default output folder: "" without
+// the suffix, otherwise preset ("default" when empty).
+func FolderPreset(preset string, noSuffix bool) string {
+	switch {
+	case noSuffix:
+		return ""
+	case preset == "":
+		return "default"
+	}
+	return preset
 }
 
 // OutBase is the base of the output names: outName when set, otherwise the
@@ -173,7 +190,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 
 	dir := o.OutDir
 	if dir == "" {
-		dir = DefaultOutDir(in, o.OutName, o.Preset)
+		dir = DefaultOutDir(in, o.OutName, FolderPreset(o.Preset, o.NoPresetSuffix))
 	}
 	out.OutDir = dir
 	if !o.DryRun {

@@ -212,6 +212,7 @@ carrier, pulse rate, width and rise.
 |---|---|
 | `-o dir` | Output folder. Default: `<output name>.<preset>` next to the input. |
 | `--name name` | Output name instead of the input name without its extension, e.g. `--name PEP11` turns `PEP11.fr.mp3` into `PEP11.alpha.funscript`. It also names the default folder and, with `-o`, the `.md` report. In the GUI, tick **Output name** below the output folder. |
+| `--no-preset-suffix` | Name the default folder `<output name>` instead of `<output name>.<preset>`. In the GUI, untick **Add preset to folder name**. |
 
 ## Decoding
 

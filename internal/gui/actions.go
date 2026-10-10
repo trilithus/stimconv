@@ -301,13 +301,23 @@ func (u *ui) outNameErr() string {
 	return ""
 }
 
+// folderPreset is the preset part of the default output folder, "" when the
+// suffix is turned off.
+func (u *ui) folderPreset() string {
+	return pipeline.FolderPreset(presets.FolderName(u.preset), !u.presetSuffix.Get())
+}
+
 // defaultOutText describes where output goes when no folder is set and how
 // the files are named.
 func (u *ui) defaultOutText() string {
 	if e := u.outNameErr(); e != "" {
 		return "⚠ " + strings.ToUpper(e[:1]) + e[1:] + "."
 	}
-	name := presets.FolderName(u.preset)
+	name := u.folderPreset()
+	suffix := ""
+	if name != "" {
+		suffix = "." + name
+	}
 	in := strings.TrimSpace(u.input.Get())
 	files := ""
 	if in != "" && len(u.inputs) == 0 {
@@ -317,10 +327,10 @@ func (u *ui) defaultOutText() string {
 		return strings.TrimSpace(files)
 	}
 	if len(u.inputs) > 0 {
-		return "Default: a folder next to each input file, named <file name without extension>." + name
+		return "Default: a folder next to each input file, named <file name without extension>" + suffix
 	}
 	if in == "" {
-		return "Default: a folder next to the input file, named <output name>." + name
+		return "Default: a folder next to the input file, named <output name>" + suffix
 	}
 	return "Default: " + pipeline.DefaultOutDir(in, u.outNameValue(), name) + "." + files
 }
@@ -419,14 +429,15 @@ func (u *ui) startOrCancel() {
 		inputs, track = []string{u.input.Get()}, u.track
 	}
 	base := pipeline.Options{
-		OutDir:     strings.TrimSpace(u.outDir.Get()),
-		OutName:    u.outNameValue(),
-		Preset:     presets.FolderName(u.preset),
-		DryRun:     u.dryRun.Get(),
-		Stats:      u.stats.Get(),
-		AudioTrack: track,
+		OutDir:         strings.TrimSpace(u.outDir.Get()),
+		OutName:        u.outNameValue(),
+		Preset:         presets.FolderName(u.preset),
+		NoPresetSuffix: !u.presetSuffix.Get(),
+		DryRun:         u.dryRun.Get(),
+		Stats:          u.stats.Get(),
+		AudioTrack:     track,
 	}
-	if dup := duplicateTargets(inputs, base.OutDir, base.Preset); len(dup) > 0 {
+	if dup := duplicateTargets(inputs, base.OutDir, u.folderPreset()); len(dup) > 0 {
 		u.logf("warning: these files write to the same funscript names, so later ones overwrite earlier ones: %s", strings.Join(dup, ", "))
 	}
 	cfg := u.cfg

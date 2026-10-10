@@ -299,7 +299,8 @@ func (u *ui) outputSection() widget.Widget {
 		primitives.HBox(
 			checkbox.New(checkbox.Label("Print statistics"), checkbox.CheckedSignal(u.stats)),
 			checkbox.New(checkbox.Label("Dry run (analyse only)"), checkbox.CheckedSignal(u.dryRun)),
-			btn("Export config…", button.TextOnly, u.exportConfig),
+			checkbox.New(checkbox.Label("Add preset to folder name"), checkbox.CheckedSignal(u.presetSuffix),
+				checkbox.OnToggle(func(bool) { u.post(u.relayout) })),
 			primitives.Expanded(primitives.Box()),
 			button.New(button.TextReadonlySignal(state.NewComputed(startLabel, u.running)), button.OnClick(u.startOrCancel),
 				button.DisabledReadonlySignal(state.NewComputed(func() bool {
