@@ -100,9 +100,10 @@ func run(args []string) error {
 	fs.String("config", "", "JSON config file (flags override it)")
 	fs.String("preset", "", "start from a preset: built-in ("+builtinNames()+") or a preset saved in the GUI; --config and flags override it")
 	emit := fs.String("emit-config", "", "write the effective config as JSON to this path")
-	outDir := fs.String("o", "", "output directory (default: <output name> next to the input; see --name and --preset-suffix)")
+	outDir := fs.String("o", "", "output directory (default: the input's folder; see --subfolder and --name)")
 	outName := fs.String("name", "", "output name instead of the input name without extension, e.g. PEP11 for PEP11.fr.mp3 -> PEP11.alpha.funscript (also names the default folder)")
-	presetSuffix := fs.Bool("preset-suffix", false, "name the default output folder <output name>.<preset> (preset = --preset, else the --config file name, else "+presets.DefaultName+")")
+	subfolder := fs.Bool("subfolder", false, "write into a folder next to the input named <output name> (with --preset-suffix: <output name>.<preset>) instead of next to the input")
+	presetSuffix := fs.Bool("preset-suffix", false, "with --subfolder: name the folder <output name>.<preset> (preset = --preset, else the --config file name, else "+presets.DefaultName+")")
 	stats := fs.Bool("stats", false, "print per-axis statistics")
 	dump := fs.String("dump-features", "", "write per-hop analysis features to this CSV path")
 	dry := fs.Bool("dry-run", false, "analyse only, do not write funscripts")
@@ -174,7 +175,7 @@ func run(args []string) error {
 	}
 
 	_, err := pipeline.Convert(context.Background(), cfg, pipeline.Options{
-		Input: in, OutDir: *outDir, OutName: *outName, Preset: presetName(args), PresetSuffix: *presetSuffix, DumpCSV: *dump, DryRun: *dry, Stats: *stats, NativeMP3: *nativeMP3,
+		Input: in, OutDir: *outDir, OutName: *outName, Preset: presetName(args), Subfolder: *subfolder, PresetSuffix: *presetSuffix, DumpCSV: *dump, DryRun: *dry, Stats: *stats, NativeMP3: *nativeMP3,
 		AudioTrack: *audioTrack,
 	}, os.Stdout)
 	return err

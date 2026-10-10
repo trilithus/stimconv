@@ -239,9 +239,16 @@ carrier, pulse rate, width and rise.
 
 | Flag | Meaning |
 |---|---|
-| `-o dir` | Output folder. Default: `<output name>` next to the input. |
+| `-o dir` | Output folder. Default: the input's own folder (see `--subfolder`). |
+| `--subfolder` | Write into a folder next to the input named `<output name>`, instead of next to the input. In the GUI, tick **Write to a sub-folder**. |
 | `--name name` | Output name instead of the input name without its extension, e.g. `--name PEP11` turns `PEP11.fr.mp3` into `PEP11.alpha.funscript`. It also names the default folder and, with `-o`, the `.md` report. In the GUI, tick **Output name** below the output folder. |
-| `--preset-suffix` | Name the default folder `<output name>.<preset>` instead of `<output name>`; the preset is the `--config` file name or `default`. In the GUI, tick **Add preset to folder name**. |
+| `--preset-suffix` | With `--subfolder`: name the folder `<output name>.<preset>`; the preset is `--preset`, else the `--config` file name, else `tri-original`. In the GUI, tick **Add preset to folder name**. |
+
+Every run removes `<output name>.<axis>.funscript` files in the output folder
+for axes stimconv can write but did not write this time, e.g. `e1`–`e4` left by
+a quad-phase run when converting tri-phase, so restim does not load a stale
+mix. The log lists what was removed. Other files, including funscripts with
+other names, are never touched; a dry run removes nothing.
 
 ## Decoding
 

@@ -305,12 +305,17 @@ func (u *ui) outputSection() widget.Widget {
 				textfield.OnChange(func(string) { u.relayout() }),
 			)),
 		).Gap(8).CrossAlign(primitives.CrossAxisCenter),
+		primitives.HBox(
+			checkbox.New(checkbox.Label("Write to a sub-folder"), checkbox.CheckedSignal(u.subfolder),
+				checkbox.OnToggle(func(bool) { u.post(u.relayout) })),
+			checkbox.New(checkbox.Label("Add preset to folder name"), checkbox.CheckedSignal(u.presetSuffix),
+				checkbox.DisabledFn(func() bool { return !u.subfolder.Get() }),
+				checkbox.OnToggle(func(bool) { u.post(u.relayout) })),
+		).Gap(12).CrossAlign(primitives.CrossAxisCenter),
 		newWrapLabel(u.defaultOutText, 11, colMuted, 4),
 		primitives.HBox(
 			checkbox.New(checkbox.Label("Print statistics"), checkbox.CheckedSignal(u.stats)),
 			checkbox.New(checkbox.Label("Dry run (analyse only)"), checkbox.CheckedSignal(u.dryRun)),
-			checkbox.New(checkbox.Label("Add preset to folder name"), checkbox.CheckedSignal(u.presetSuffix),
-				checkbox.OnToggle(func(bool) { u.post(u.relayout) })),
 			primitives.Expanded(primitives.Box()),
 			button.New(button.TextReadonlySignal(state.NewComputed(startLabel, u.running)), button.OnClick(u.startOrCancel),
 				button.DisabledReadonlySignal(state.NewComputed(func() bool {

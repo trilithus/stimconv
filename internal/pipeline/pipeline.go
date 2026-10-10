@@ -4,6 +4,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -23,14 +24,17 @@ import (
 // Options are the per-run settings that are not part of config.Config.
 type Options struct {
 	Input  string
-	OutDir string // default: DefaultOutDir(Input, OutName, Preset)
+	OutDir string // default: DefaultOutDir(Input, OutName, preset, Subfolder)
 	// OutName replaces the input name (without extension) in the output
 	// names, e.g. "PEP11" for PEP11.fr.mp3 -> PEP11.alpha.funscript.
 	// "" uses the input name; see ValidateOutName.
 	OutName string
-	Preset  string // added to the default output folder with PresetSuffix; "" = "default"
-	// PresetSuffix adds the preset to the default output folder:
-	// "track.default" instead of "track".
+	Preset  string // added to the sub-folder with PresetSuffix; "" = "default"
+	// Subfolder writes into a dedicated folder next to the input, named
+	// after the output name, instead of next to the input itself.
+	Subfolder bool
+	// PresetSuffix adds the preset to that sub-folder's name:
+	// "track.tri-original" instead of "track".
 	PresetSuffix bool
 	DumpCSV      string // per-hop features CSV, empty = off
 	DryRun       bool   // analyse only, write no funscripts
@@ -41,11 +45,14 @@ type Options struct {
 	AudioTrack int
 }
 
-// DefaultOutDir is the output folder used when none is given: a folder next
-// to the input named after the output name (see OutBase) and the preset,
-// e.g. "track.default", or just "track" when preset is "". preset must
-// already be a safe folder name.
-func DefaultOutDir(input, outName, preset string) string {
+// DefaultOutDir is the output folder used when none is given: the input's
+// own folder, or with subfolder a folder next to the input named after the
+// output name (see OutBase) and the preset, e.g. "track.tri-original", or
+// just "track" when preset is "". preset must already be a safe folder name.
+func DefaultOutDir(input, outName, preset string, subfolder bool) string {
+	if !subfolder {
+		return filepath.Dir(input)
+	}
 	name := OutBase(input, outName)
 	if preset != "" {
 		name += "." + preset
@@ -190,7 +197,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 
 	dir := o.OutDir
 	if dir == "" {
-		dir = DefaultOutDir(in, o.OutName, FolderPreset(o.Preset, o.PresetSuffix))
+		dir = DefaultOutDir(in, o.OutName, FolderPreset(o.Preset, o.PresetSuffix), o.Subfolder)
 	}
 	out.OutDir = dir
 	if !o.DryRun {
@@ -200,6 +207,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 	}
 	base := OutBase(in, o.OutName)
 	var written []writtenAxis
+	wroteAxis := map[string]bool{}
 	for _, a := range res.Axes {
 		acts := a.Actions(cfg.Epsilon)
 		path := filepath.Join(dir, base+"."+a.Name+".funscript")
@@ -216,6 +224,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 			acts = s.Actions
 		}
 		written = append(written, writtenAxis{Name: a.Name, Actions: acts})
+		wroteAxis[a.Name] = true
 		if o.Stats {
 			printStats(log, a, len(acts))
 		}
@@ -245,7 +254,14 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 	}
 	out.Hints = RestimHints(cfg, res.Axes)
 	if !o.DryRun {
-		readme := filepath.Join(dir, ReadmeName(in, o.OutName, o.OutDir != ""))
+		removed, err := removeStale(dir, base, wroteAxis)
+		for _, p := range removed {
+			fmt.Fprintf(log, "removed %s (not part of this output; a previous run with other options wrote it)\n", filepath.Base(p))
+		}
+		if err != nil {
+			fmt.Fprintln(log, "warning:", err)
+		}
+		readme := filepath.Join(dir, ReadmeName(in, o.OutName, o.OutDir == "" && o.Subfolder))
 		preset := o.Preset
 		if preset == "" {
 			preset = "default"
@@ -259,6 +275,35 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 	}
 	fmt.Fprintln(log, out.Hints)
 	return out, nil
+}
+
+// removeStale deletes <base>.<axis>.funscript in dir for every axis stimconv
+// can write (config ranges) that this run did not write, e.g. e1-e4 left
+// from a quad-phase run when this one is tri-phase. restim would otherwise
+// load them alongside the new files. Other funscripts are left alone.
+func removeStale(dir, base string, wrote map[string]bool) ([]string, error) {
+	var axes []string
+	for k := range config.Default().Ranges {
+		axes = append(axes, k)
+	}
+	sort.Strings(axes)
+	var removed []string
+	var errs []error
+	for _, ax := range axes {
+		if wrote[ax] {
+			continue
+		}
+		p := filepath.Join(dir, base+"."+ax+".funscript")
+		if st, err := os.Lstat(p); err != nil || !st.Mode().IsRegular() {
+			continue
+		}
+		if err := os.Remove(p); err != nil {
+			errs = append(errs, fmt.Errorf("could not remove %s: %w", filepath.Base(p), err))
+			continue
+		}
+		removed = append(removed, p)
+	}
+	return removed, errors.Join(errs...)
 }
 
 func printStats(log io.Writer, a *funscript.Axis, points int) {

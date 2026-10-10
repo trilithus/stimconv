@@ -49,7 +49,8 @@ type ui struct {
 	input, outDir, presetName state.Signal[string]
 	outName                   state.Signal[string] // output name override, used when outNameOn
 	outNameOn                 state.Signal[bool]
-	presetSuffix              state.Signal[bool] // default folder ends in .<preset>
+	subfolder                 state.Signal[bool] // default output goes to a folder next to the input
+	presetSuffix              state.Signal[bool] // that folder ends in .<preset>
 	info, status              state.Signal[string]
 	contentWarn               state.Signal[string] // stim/music check of the input
 	stats, dryRun, running    state.Signal[bool]
@@ -99,7 +100,7 @@ func newUI(g *gogpu.App, a *app.App) *ui {
 	return &ui{
 		gapp: g, app: a, cfg: config.Default(), preset: presets.Default,
 		input: state.NewSignal(""), outDir: state.NewSignal(""), presetName: state.NewSignal(""),
-		outName: state.NewSignal(""), outNameOn: state.NewSignal(false), presetSuffix: state.NewSignal(false),
+		outName: state.NewSignal(""), outNameOn: state.NewSignal(false), presetSuffix: state.NewSignal(false), subfolder: state.NewSignal(false),
 		contentWarn: state.NewSignal(""),
 		info:        state.NewSignal("No input selected — browse or drop an audio file onto the window."),
 		status:      state.NewSignal("Ready"),

@@ -323,16 +323,20 @@ func (u *ui) defaultOutText() string {
 	if in != "" && len(u.inputs) == 0 {
 		files = " Files: " + pipeline.OutBase(in, u.outNameValue()) + ".<axis>.funscript."
 	}
+	stale := " Funscripts from earlier runs with other options (e.g. e1-e4 after switching to tri-phase) are removed."
 	if strings.TrimSpace(u.outDir.Get()) != "" {
-		return strings.TrimSpace(files)
+		return strings.TrimSpace(files + stale)
 	}
-	if len(u.inputs) > 0 {
-		return "Default: a folder next to each input file, named <file name without extension>" + suffix
+	sub := u.subfolder.Get()
+	switch {
+	case !sub && (len(u.inputs) > 0 || in == ""):
+		return "Default: next to each input file." + stale
+	case len(u.inputs) > 0:
+		return "Default: a folder next to each input file, named <file name without extension>" + suffix + "." + stale
+	case in == "":
+		return "Default: a folder next to the input file, named <output name>" + suffix + "." + stale
 	}
-	if in == "" {
-		return "Default: a folder next to the input file, named <output name>" + suffix
-	}
-	return "Default: " + pipeline.DefaultOutDir(in, u.outNameValue(), name) + "." + files
+	return "Default: " + pipeline.DefaultOutDir(in, u.outNameValue(), name, sub) + "." + files + stale
 }
 
 // probeInput checks that p can be decoded and lists its audio tracks.
@@ -432,12 +436,13 @@ func (u *ui) startOrCancel() {
 		OutDir:       strings.TrimSpace(u.outDir.Get()),
 		OutName:      u.outNameValue(),
 		Preset:       presets.FolderName(u.preset),
+		Subfolder:    u.subfolder.Get(),
 		PresetSuffix: u.presetSuffix.Get(),
 		DryRun:       u.dryRun.Get(),
 		Stats:        u.stats.Get(),
 		AudioTrack:   track,
 	}
-	if dup := duplicateTargets(inputs, base.OutDir, u.folderPreset()); len(dup) > 0 {
+	if dup := duplicateTargets(inputs, base.OutDir, u.folderPreset(), base.Subfolder); len(dup) > 0 {
 		u.logf("warning: these files write to the same funscript names, so later ones overwrite earlier ones: %s", strings.Join(dup, ", "))
 	}
 	cfg := u.cfg
@@ -503,13 +508,13 @@ func (u *ui) startOrCancel() {
 
 // duplicateTargets lists inputs whose funscripts would land on the same
 // paths (same output folder and same name without extension).
-func duplicateTargets(inputs []string, outDir, preset string) []string {
+func duplicateTargets(inputs []string, outDir, preset string, subfolder bool) []string {
 	seen := map[string]string{}
 	var dup []string
 	for _, in := range inputs {
 		dir := outDir
 		if dir == "" {
-			dir = pipeline.DefaultOutDir(in, "", preset)
+			dir = pipeline.DefaultOutDir(in, "", preset, subfolder)
 		}
 		key := filepath.Join(dir, strings.TrimSuffix(filepath.Base(in), filepath.Ext(in)))
 		if first, ok := seen[key]; ok {

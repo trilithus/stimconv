@@ -11,11 +11,11 @@ import (
 	"github.com/trilithus/stimconv/internal/config"
 )
 
-// ReadmeName is the settings report's file name: README.md inside a default
-// output folder (one input per folder), <input name>.md in a chosen folder,
-// where several inputs may share it (<output name>.md with an OutName).
-func ReadmeName(input, outName string, customOutDir bool) string {
-	if !customOutDir {
+// ReadmeName is the settings report's file name: README.md inside a
+// dedicated sub-folder (one input per folder), otherwise <output name>.md,
+// since several inputs may share the folder.
+func ReadmeName(input, outName string, ownFolder bool) string {
+	if ownFolder {
 		return "README.md"
 	}
 	return OutBase(input, outName) + ".md"

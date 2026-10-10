@@ -63,9 +63,11 @@ default) and `[quad-original]` reproduce the recorded level as-is,
 `[tri-original-smooth]` does so without imitating the beat between different
 carriers, and `[quad-normalized]` / `[tri-normalized]` scale every track to
 the full volume range (CLI: `--preset tri-original`). Your own presets are
-stored as `--config`-compatible JSON. The default output folder is
-`<input name>` next to the input; tick **Add preset to folder name** (CLI
-`--preset-suffix`) for `<input name>.<preset>`.
+stored as `--config`-compatible JSON. The funscripts are written next to the
+input; tick **Write to a sub-folder** (CLI `--subfolder`) for a folder
+`<input name>`, and **Add preset to folder name** (`--preset-suffix`) for
+`<input name>.<preset>`. Funscripts left by an earlier run with other options
+(e.g. `e1`–`e4` after switching to tri-phase) are removed.
 
 <a href="docs/images/expert.png"><img src="docs/images/expert.png" alt="Expert mode" width="384"></a>
 
@@ -108,8 +110,8 @@ in restim's funscript kit.
 ## Output
 
 Each conversion produces one `.funscript` per axis, simplified with RDP, and a
-settings report. The report is named `README.md` in the default output folder,
-or `<input name>.md` in a chosen folder. It records the source file and track,
+settings report. The report is named `README.md` in a sub-folder, or
+`<input name>.md` next to the input or in a chosen folder. It records the source file and track,
 the preset, every option with its value and whether that value is the default,
 the files written, warnings and restim hints.
 

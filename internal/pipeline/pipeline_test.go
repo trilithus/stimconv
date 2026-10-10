@@ -52,7 +52,7 @@ func TestConvertWritesFunscripts(t *testing.T) {
 		cfg := config.Default()
 		cfg.Topology = topo
 		var log bytes.Buffer
-		res, err := Convert(context.Background(), cfg, Options{Input: in, Preset: "p_" + topo, PresetSuffix: true}, &log)
+		res, err := Convert(context.Background(), cfg, Options{Input: in, Preset: "p_" + topo, Subfolder: true, PresetSuffix: true}, &log)
 		if err != nil {
 			t.Fatalf("%s: %v\n%s", topo, err, log.String())
 		}
@@ -86,10 +86,13 @@ func TestConvertCancelled(t *testing.T) {
 
 func TestDefaultOutDir(t *testing.T) {
 	in := filepath.Join("music", "song.mp3")
-	if got, want := DefaultOutDir(in, "", FolderPreset("", true)), filepath.Join("music", "song.default"); got != want {
+	if got, want := DefaultOutDir(in, "", "", false), "music"; got != want {
+		t.Errorf("DefaultOutDir without sub-folder = %q, want the input's folder %q", got, want)
+	}
+	if got, want := DefaultOutDir(in, "", FolderPreset("", true), true), filepath.Join("music", "song.default"); got != want {
 		t.Errorf("DefaultOutDir = %q, want %q", got, want)
 	}
-	if got, want := DefaultOutDir(in, "", FolderPreset("soft", false)), filepath.Join("music", "song"); got != want {
+	if got, want := DefaultOutDir(in, "", FolderPreset("soft", false), true), filepath.Join("music", "song"); got != want {
 		t.Errorf("DefaultOutDir without preset suffix = %q, want %q", got, want)
 	}
 }
@@ -98,7 +101,7 @@ func TestOutName(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "PEP11.fr.wav")
 	writeWAV(t, in, 2)
-	res, err := Convert(context.Background(), config.Default(), Options{Input: in, OutName: "PEP11"}, &bytes.Buffer{})
+	res, err := Convert(context.Background(), config.Default(), Options{Input: in, OutName: "PEP11", Subfolder: true}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,6 +130,63 @@ func TestOutName(t *testing.T) {
 	}
 }
 
+// By default the funscripts go next to the input with a <name>.md report,
+// and a run with other options removes the axes it no longer writes, but no
+// other files.
+func TestNextToInputAndStaleRemoval(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "track.wav")
+	writeWAV(t, in, 2)
+	keep := []string{"track.funscript", "other.e1.funscript", "track.e1.notes"}
+	for _, k := range keep {
+		os.WriteFile(filepath.Join(dir, k), []byte("{}"), 0o644)
+	}
+	cfg := config.Default()
+	cfg.Topology = "dual"
+	res, err := Convert(context.Background(), cfg, Options{Input: in}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OutDir != dir {
+		t.Fatalf("OutDir = %q, want the input's folder %q", res.OutDir, dir)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "track.md")); err != nil {
+		t.Errorf("report next to the input should be track.md: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "track.e1.funscript")); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Topology = "joined"
+	var log bytes.Buffer
+	if _, err := Convert(context.Background(), cfg, Options{Input: in}, &log); err != nil {
+		t.Fatal(err)
+	}
+	for _, ax := range []string{"e1", "e2", "e3", "e4"} {
+		if _, err := os.Stat(filepath.Join(dir, "track."+ax+".funscript")); !os.IsNotExist(err) {
+			t.Errorf("stale track.%s.funscript not removed (%v)", ax, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "track.alpha.funscript")); err != nil {
+		t.Error(err)
+	}
+	if !strings.Contains(log.String(), "removed track.e1.funscript") {
+		t.Errorf("removal not logged:\n%s", log.String())
+	}
+	for _, k := range append(keep, "track.wav") {
+		if _, err := os.Stat(filepath.Join(dir, k)); err != nil {
+			t.Errorf("%s must be kept: %v", k, err)
+		}
+	}
+	// a dry run removes nothing
+	cfg.Topology = "dual"
+	if _, err := Convert(context.Background(), cfg, Options{Input: in, DryRun: true}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "track.alpha.funscript")); err != nil {
+		t.Errorf("dry run removed a file: %v", err)
+	}
+}
+
 func TestReadme(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "my track.wav")
@@ -135,7 +195,7 @@ func TestReadme(t *testing.T) {
 	cfg.Topology, cfg.Gamma = "joined", 1.5
 
 	// default folder -> README.md
-	res, err := Convert(context.Background(), cfg, Options{Input: in, Preset: "soft"}, &bytes.Buffer{})
+	res, err := Convert(context.Background(), cfg, Options{Input: in, Preset: "soft", Subfolder: true}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
 	}
