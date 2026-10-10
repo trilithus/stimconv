@@ -363,6 +363,9 @@ func wiringGuidance(w analysis.Wiring) string {
 	case analysis.WiringFour:
 		return "Likely made for quad-phase (two separate pairs): A and B carry separate content (" + pct(w.EnvDiff+w.OneSided) + " of the track). Use a quad-phase preset, e.g. [quad-original]."
 	case analysis.WiringMono:
+		if w.SingleChannel() {
+			return "A mono track: A and B carry the same signal (" + pct(w.Mono) + " of the track). The original box played these on one channel with two electrodes. Use [mono-original] and connect only FOC-Stim outputs A and B."
+		}
 		return "Tri-phase and quad-phase both fit: A and B carry the same signal (" + pct(w.Mono) + " of the track)."
 	case analysis.WiringDetuned:
 		return "Tri-phase and quad-phase both fit: A and B use different carriers (" + pct(w.Detuned) + " of the track); tri-phase plays them as a beat, quad-phase as two separate sensations."

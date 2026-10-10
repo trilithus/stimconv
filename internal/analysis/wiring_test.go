@@ -64,3 +64,17 @@ func TestWiringVerdicts(t *testing.T) {
 		}
 	}
 }
+
+// Only mono content counts as a single-channel (two-electrode) track.
+func TestSingleChannel(t *testing.T) {
+	mono := wiringOf(t, func(t float64) (float64, float64) {
+		v := 0.5 * math.Sin(2*math.Pi*800*t)
+		return v, v
+	})
+	phased := wiringOf(t, func(t float64) (float64, float64) {
+		return 0.5 * math.Sin(2*math.Pi*800*t), 0.5 * math.Sin(2*math.Pi*803*t)
+	})
+	if !mono.SingleChannel() || phased.SingleChannel() {
+		t.Errorf("SingleChannel: mono %v, phased %v", mono.SingleChannel(), phased.SingleChannel())
+	}
+}

@@ -72,6 +72,7 @@ func TestBuiltins(t *testing.T) {
 		{"[tri-original]", "joined", "abs", "current", "beat", 1, false},
 		{"[tri-original-smooth]", "joined", "abs", "current", "off", 1, false},
 		{"[tri-normalized]", "joined", "p99", "effective", "beat", 0.85, true},
+		{"[mono-original]", "joined", "abs", "current", "off", 1, false},
 	} {
 		b, ok := Lookup(c.name)
 		if !ok {
@@ -85,6 +86,11 @@ func TestBuiltins(t *testing.T) {
 		}
 		if b.Desc == "" || ValidateName(FolderName(c.name)) == nil {
 			t.Errorf("%s: needs a description and a reserved folder name", c.name)
+		}
+	}
+	for _, b := range Builtins {
+		if want := map[bool]string{true: "ab", false: "track"}[b.Name == "[mono-original]"]; b.Config().Position != want {
+			t.Errorf("%s: position %q, want %q", b.Name, b.Config().Position, want)
 		}
 	}
 	if _, ok := Lookup("tri-original"); !ok {

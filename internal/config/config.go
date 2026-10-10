@@ -54,6 +54,11 @@ type Config struct {
 	ContinuousPulseHz float64 `json:"continuous_pulse_hz"`
 	// IFC (joined): "beat" renders |fA-fB| as the rhythm, "off" ignores it.
 	IFC string `json:"ifc"`
+	// Position (joined): "track" derives alpha/beta from the A/B relation;
+	// "ab" holds the A-B edge (alpha 0.5, beta √3/2, FOC-Stim currents
+	// 1, 1, 0), so current flows only between outputs A and B and C can stay
+	// unconnected: how the original box played a mono track on one channel.
+	Position string `json:"position"`
 
 	// Intensity: "current" (peak electrode current) or "effective"
 	// (strength-duration weighted charge; restim's TauCalibration then
@@ -108,6 +113,7 @@ func Default() Config {
 		FusionHz:          12,
 		ContinuousPulseHz: 100,
 		IFC:               "beat",
+		Position:          "track",
 		Intensity:         "current",
 		TauUS:             355,
 		RefCarrierHz:      2000,
@@ -185,6 +191,7 @@ func (c Config) Validate() error {
 		oneOf("params", c.Params, "weighted", "dominant", "constant"),
 		oneOf("rhythm", c.Rhythm, "pulses", "volume", "auto"),
 		oneOf("ifc", c.IFC, "beat", "off"),
+		oneOf("position", c.Position, "track", "ab"),
 		oneOf("intensity", c.Intensity, "current", "effective"),
 		oneOf("normalize", c.Normalize, "peak", "p99", "abs"),
 	} {

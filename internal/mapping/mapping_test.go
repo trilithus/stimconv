@@ -167,6 +167,22 @@ func TestJoinedMonoIsNeutral(t *testing.T) {
 	}
 }
 
+// Position ab holds FOC-Stim's A-B edge (currents 1, 1, 0) whatever the
+// A/B relation, and never imitates a beat: there is one current path.
+func TestJoinedPositionAB(t *testing.T) {
+	cfg := config.Default()
+	cfg.Position = "ab"
+	res := run(t, 3, cfg, func(t float64) (float64, float64) {
+		return 0.4 * math.Sin(2*math.Pi*800*t), 0.4 * math.Sin(2*math.Pi*810*t)
+	})
+	if a, b := med(axis(res, "alpha"), 0.5, 2.5), med(axis(res, "beta"), 0.5, 2.5); math.Abs(a-0.5) > 0.01 || math.Abs(b-math.Sqrt(3)/2) > 0.01 {
+		t.Errorf("alpha/beta %.3f/%.3f, want 0.5/0.866", a, b)
+	}
+	if res.ModeTime["ifc"] > 0 {
+		t.Errorf("beat imitated on a single current path: %v", res.ModeTime)
+	}
+}
+
 func TestHighCarrierClamped(t *testing.T) {
 	cfg := config.Default()
 	res := run(t, 4, cfg, func(t float64) (float64, float64) {

@@ -54,6 +54,16 @@ func (v WiringVerdict) Topology() string {
 	return ""
 }
 
+// singleChannelMono is the mono share from which a track counts as mono
+// throughout (a mono file decodes to L = R and scores 100%).
+const singleChannelMono = 0.9
+
+// SingleChannel reports a mono track. The original box played those on one
+// channel with two electrodes, which config.Position "ab" reproduces.
+func (w Wiring) SingleChannel() bool {
+	return w.Verdict == WiringMono && w.Mono >= singleChannelMono
+}
+
 func (w Wiring) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "A/B relation (of active time): mono %.0f%%", 100*w.Mono)
@@ -71,7 +81,11 @@ func (w Wiring) String() string {
 	case WiringFour:
 		b.WriteString("likely 4-phase (two pairs): A and B carry separate content; topology dual keeps it apart")
 	case WiringMono:
-		b.WriteString("either: A and B carry the same signal")
+		if w.SingleChannel() {
+			b.WriteString("mono: one channel with two electrodes on the original box; preset [mono-original] (FOC-Stim outputs A and B) reproduces that")
+		} else {
+			b.WriteString("either: A and B carry the same signal")
+		}
 	case WiringDetuned:
 		b.WriteString("either: different carriers on A and B (an interferential beat with joined, two separate sensations with dual)")
 	default:

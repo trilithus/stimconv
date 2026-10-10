@@ -161,11 +161,15 @@ func Map(f *analysis.Features, cfg config.Config) (*Result, error) {
 			ll := analysis.At(f.CLL, analysis.HopRate, t)
 			lr := analysis.At(f.CLR, analysis.HopRate, t)
 			rr := analysis.At(f.CRR, analysis.HopRate, t)
-			if a, b, ok := threephase.Inverse(ll, lr, rr); ok && v > 0 {
+			if cfg.Position == "ab" {
+				// FOC-Stim's A-B edge: currents (1, 1, 0) on outputs A, B, C
+				prevAlpha, prevBeta = 0.5, math.Sqrt(3)/2
+			} else if a, b, ok := threephase.Inverse(ll, lr, rr); ok && v > 0 {
 				prevAlpha, prevBeta = a, b
 			}
 			alpha[i], beta[i] = prevAlpha, prevBeta
-			if cfg.IFC == "beat" && math.Min(lA, lB) > 0.2*v && v > 0 {
+			// one current path: no common on which A and B could beat
+			if cfg.IFC == "beat" && cfg.Position != "ab" && math.Min(lA, lB) > 0.2*v && v > 0 {
 				beat := physio.Beat(cs[0].carrier, cs[1].carrier)
 				if beat >= 3 && beat <= foc["pulse_frequency"].Max {
 					fc := clamp(sh.carrier, foc["frequency"])

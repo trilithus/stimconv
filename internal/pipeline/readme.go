@@ -30,6 +30,7 @@ type readmeInfo struct {
 	Files    []string
 	Warnings []string
 	Restim   []RestimSetting
+	TwoLead  bool // tri-phase position ab: output C stays unconnected
 }
 
 // writeReadme writes the report next to the funscripts. It is written for
@@ -69,6 +70,9 @@ func writeReadme(path string, cfg config.Config, info readmeInfo) error {
 			mark = "**change**"
 		}
 		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n", mdCell(s.Where), mdCell(s.Name), mdCell(s.Need), mdCell(s.Default), mark)
+	}
+	if info.TwoLead {
+		fmt.Fprintf(&b, "3. Connect two electrodes, to FOC-Stim outputs A and B, as the original box used one channel for a mono track. Output C gets no current and can stay unconnected. Keep restim's 3-phase position transform off, or it moves current onto C.\n")
 	}
 	fmt.Fprintf(&b, "\nFunscript kit ranges are read linearly: a script written for 300 – 2000 Hz plays wrong under restim's 500 – 1000 Hz, so set each one exactly.\n")
 

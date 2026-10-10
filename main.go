@@ -123,6 +123,7 @@ func run(args []string) error {
 	fs.StringVar(&cfg.Rhythm, "rhythm", cfg.Rhythm, "render envelope rhythm as: pulses | volume | auto (by fusion frequency)")
 	fs.Float64Var(&cfg.FusionHz, "fusion-hz", cfg.FusionHz, "auto: rhythms at or above this rate become FOC pulses")
 	fs.Float64Var(&cfg.ContinuousPulseHz, "continuous-pulse-hz", cfg.ContinuousPulseHz, "FOC pulse rate for steady / volume-rendered segments")
+	fs.StringVar(&cfg.Position, "position", cfg.Position, "joined: track (alpha/beta from the A/B relation) | ab (current only between FOC-Stim outputs A and B; two electrodes)")
 	fs.StringVar(&cfg.IFC, "ifc", cfg.IFC, "joined: interferential beat of different carriers: beat | off")
 	fs.StringVar(&cfg.Intensity, "intensity", cfg.Intensity, "volume measure: effective (strength-duration) | current")
 	fs.Float64Var(&cfg.TauUS, "tau-us", cfg.TauUS, "nerve chronaxie in microseconds (match restim's tau setting)")

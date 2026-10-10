@@ -46,6 +46,14 @@ func original(topology, ifc string) func() config.Config {
 	}
 }
 
+// mono is the original box playing a mono track on one channel: two
+// electrodes, on FOC-Stim outputs A and B (tri-phase A-B edge).
+func mono() config.Config {
+	c := config.Default()
+	c.Position, c.IFC = "ab", "off"
+	return c
+}
+
 // Builtins lists the built-in presets; the first is selected at start and
 // matches config.Default.
 var Builtins = []Builtin{
@@ -54,6 +62,7 @@ var Builtins = []Builtin{
 	{"[tri-normalized]", "Tri-phase. Scales each track to the full volume range and evens out quiet passages.", normalized("joined")},
 	{"[quad-original]", "Quad-phase. Volume follows the track exactly as recorded; quiet tracks stay quiet.", original("dual", "beat")},
 	{"[quad-normalized]", "Quad-phase. Scales each track to the full volume range and evens out quiet passages.", normalized("dual")},
+	{"[mono-original]", "For mono tracks, as the original box played them on one channel: two electrodes on FOC-Stim outputs A and B, output C unconnected (tri-phase). Volume follows the track exactly as recorded.", mono},
 }
 
 // Default is the built-in preset selected at start.

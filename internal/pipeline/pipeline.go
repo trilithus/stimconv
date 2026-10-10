@@ -194,6 +194,17 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 			"the A/B content suggests topology %s, but %s is selected (%.0f%% phase-coded, %.0f%% separate A/B content)",
 			t, cfg.Topology, 100*wiring.Phased, 100*(wiring.EnvDiff+wiring.OneSided)))
 	}
+	twoLead := cfg.Topology == "joined" && cfg.Position == "ab"
+	switch {
+	case wiring.SingleChannel() && !twoLead:
+		res.Warnings = append(res.Warnings, fmt.Sprintf(
+			"A and B carry the same signal (%.0f%%): a mono track, which the original box played on one channel with two electrodes; preset [mono-original] reproduces that",
+			100*wiring.Mono))
+	case twoLead && wiring.Verdict != analysis.WiringUnknown && !wiring.SingleChannel():
+		res.Warnings = append(res.Warnings, fmt.Sprintf(
+			"position ab plays only the louder of A and B between two electrodes, but this track is not mono (%.0f%% mono); differences between A and B are lost",
+			100*wiring.Mono))
+	}
 	if err := ctx.Err(); err != nil {
 		return out, err
 	}
@@ -288,6 +299,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 		}
 		if err := writeReadme(readme, cfg, readmeInfo{
 			Input: in, Source: what, Preset: preset, Duration: raw.Duration, Files: out.Files, Warnings: res.Warnings, Restim: RestimSettings(cfg, res.Axes),
+			TwoLead: twoLead,
 		}); err != nil {
 			return out, err
 		}

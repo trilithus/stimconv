@@ -65,11 +65,13 @@ separate content), and which preset fits.
 
 Beginners see the output type and a few basic options. **Expert mode** shows
 every setting, grouped, each with a short explanation and a reset button.
-Five built-in presets cover the common cases: `[tri-original]` (the
+Six built-in presets cover the common cases: `[tri-original]` (the
 default) and `[quad-original]` reproduce the recorded level as-is,
 `[tri-original-smooth]` does so without imitating the beat between different
-carriers, and `[quad-normalized]` / `[tri-normalized]` scale every track to
-the full volume range (CLI: `--preset tri-original`). Your own presets are
+carriers, `[quad-normalized]` / `[tri-normalized]` scale every track to
+the full volume range, and `[mono-original]` plays a mono track the way the
+original box did, on one channel: two electrodes, on FOC-Stim outputs A and B
+(output C stays unconnected) (CLI: `--preset tri-original`). Your own presets are
 stored as `--config`-compatible JSON. The funscripts are written next to the
 input; tick **Write to a sub-folder** (CLI `--subfolder`) for a folder
 `<input name>`, and **Add preset to folder name** (`--preset-suffix`) for
