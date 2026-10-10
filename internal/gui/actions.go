@@ -304,7 +304,7 @@ func (u *ui) outNameErr() string {
 // folderPreset is the preset part of the default output folder, "" when the
 // suffix is turned off.
 func (u *ui) folderPreset() string {
-	return pipeline.FolderPreset(presets.FolderName(u.preset), !u.presetSuffix.Get())
+	return pipeline.FolderPreset(presets.FolderName(u.preset), u.presetSuffix.Get())
 }
 
 // defaultOutText describes where output goes when no folder is set and how
@@ -429,13 +429,13 @@ func (u *ui) startOrCancel() {
 		inputs, track = []string{u.input.Get()}, u.track
 	}
 	base := pipeline.Options{
-		OutDir:         strings.TrimSpace(u.outDir.Get()),
-		OutName:        u.outNameValue(),
-		Preset:         presets.FolderName(u.preset),
-		NoPresetSuffix: !u.presetSuffix.Get(),
-		DryRun:         u.dryRun.Get(),
-		Stats:          u.stats.Get(),
-		AudioTrack:     track,
+		OutDir:       strings.TrimSpace(u.outDir.Get()),
+		OutName:      u.outNameValue(),
+		Preset:       presets.FolderName(u.preset),
+		PresetSuffix: u.presetSuffix.Get(),
+		DryRun:       u.dryRun.Get(),
+		Stats:        u.stats.Get(),
+		AudioTrack:   track,
 	}
 	if dup := duplicateTargets(inputs, base.OutDir, u.folderPreset()); len(dup) > 0 {
 		u.logf("warning: these files write to the same funscript names, so later ones overwrite earlier ones: %s", strings.Join(dup, ", "))

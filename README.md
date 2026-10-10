@@ -58,8 +58,9 @@ options, output.
 
 Beginners see the output type and a few basic options. **Expert mode** shows
 every setting, grouped, each with a short explanation and a reset button.
-Presets are stored as `--config`-compatible JSON. The preset name also names
-the default output folder, `<input name>.<preset>`.
+Presets are stored as `--config`-compatible JSON. The default output folder is
+`<input name>` next to the input; tick **Add preset to folder name** (CLI
+`--preset-suffix`) for `<input name>.<preset>`.
 
 <a href="docs/images/expert.png"><img src="docs/images/expert.png" alt="Expert mode" width="384"></a>
 
@@ -85,7 +86,7 @@ conversion. The console marks each line as info, warning or error.
 ## Command line
 
 ```sh
-stimconv cli [flags] track.mp3            # writes track.default/track.<axis>.funscript
+stimconv cli [flags] track.mp3            # writes track/track.<axis>.funscript
 stimconv cli --topology joined track.mp3  # tri-phase (alpha/beta)
 stimconv cli --stats --dump-features f.csv track.mp3
 stimconv cli --list-tracks video.mkv      # list audio tracks

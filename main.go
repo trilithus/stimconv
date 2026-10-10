@@ -100,9 +100,9 @@ func run(args []string) error {
 	}
 	fs.String("config", "", "JSON config file (flags override it)")
 	emit := fs.String("emit-config", "", "write the effective config as JSON to this path")
-	outDir := fs.String("o", "", "output directory (default: <input name without extension>.<preset> next to the input; preset = --config file name or \"default\")")
+	outDir := fs.String("o", "", "output directory (default: <output name> next to the input; see --name and --preset-suffix)")
 	outName := fs.String("name", "", "output name instead of the input name without extension, e.g. PEP11 for PEP11.fr.mp3 -> PEP11.alpha.funscript (also names the default folder)")
-	noSuffix := fs.Bool("no-preset-suffix", false, "name the default output folder <output name> instead of <output name>.<preset>")
+	presetSuffix := fs.Bool("preset-suffix", false, "name the default output folder <output name>.<preset> (preset = --config file name or \"default\")")
 	stats := fs.Bool("stats", false, "print per-axis statistics")
 	dump := fs.String("dump-features", "", "write per-hop analysis features to this CSV path")
 	dry := fs.Bool("dry-run", false, "analyse only, do not write funscripts")
@@ -174,7 +174,7 @@ func run(args []string) error {
 	}
 
 	_, err := pipeline.Convert(context.Background(), cfg, pipeline.Options{
-		Input: in, OutDir: *outDir, OutName: *outName, Preset: presetName(args), NoPresetSuffix: *noSuffix, DumpCSV: *dump, DryRun: *dry, Stats: *stats, NativeMP3: *nativeMP3,
+		Input: in, OutDir: *outDir, OutName: *outName, Preset: presetName(args), PresetSuffix: *presetSuffix, DumpCSV: *dump, DryRun: *dry, Stats: *stats, NativeMP3: *nativeMP3,
 		AudioTrack: *audioTrack,
 	}, os.Stdout)
 	return err

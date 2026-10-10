@@ -28,14 +28,14 @@ type Options struct {
 	// names, e.g. "PEP11" for PEP11.fr.mp3 -> PEP11.alpha.funscript.
 	// "" uses the input name; see ValidateOutName.
 	OutName string
-	Preset  string // names the default output folder; "" = "default"
-	// NoPresetSuffix leaves the preset out of the default output folder:
-	// "track" instead of "track.default".
-	NoPresetSuffix bool
-	DumpCSV        string // per-hop features CSV, empty = off
-	DryRun         bool   // analyse only, write no funscripts
-	Stats          bool   // print per-axis statistics
-	NativeMP3      bool   // decode Layer III with go-mp3 instead of ffmpeg
+	Preset  string // added to the default output folder with PresetSuffix; "" = "default"
+	// PresetSuffix adds the preset to the default output folder:
+	// "track.default" instead of "track".
+	PresetSuffix bool
+	DumpCSV      string // per-hop features CSV, empty = off
+	DryRun       bool   // analyse only, write no funscripts
+	Stats        bool   // print per-axis statistics
+	NativeMP3    bool   // decode Layer III with go-mp3 instead of ffmpeg
 	// AudioTrack picks an audio stream in video/container files, numbered
 	// from 1 (decode.Track.Index+1); 0 uses the default track.
 	AudioTrack int
@@ -55,9 +55,9 @@ func DefaultOutDir(input, outName, preset string) string {
 
 // FolderPreset is the preset part of the default output folder: "" without
 // the suffix, otherwise preset ("default" when empty).
-func FolderPreset(preset string, noSuffix bool) string {
+func FolderPreset(preset string, suffix bool) string {
 	switch {
-	case noSuffix:
+	case !suffix:
 		return ""
 	case preset == "":
 		return "default"
@@ -190,7 +190,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 
 	dir := o.OutDir
 	if dir == "" {
-		dir = DefaultOutDir(in, o.OutName, FolderPreset(o.Preset, o.NoPresetSuffix))
+		dir = DefaultOutDir(in, o.OutName, FolderPreset(o.Preset, o.PresetSuffix))
 	}
 	out.OutDir = dir
 	if !o.DryRun {

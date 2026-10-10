@@ -77,8 +77,8 @@ func TestBatch(t *testing.T) {
 	if !pump(u, 60*time.Second, func() bool { return !u.running.Get() }) {
 		t.Fatal("batch did not finish")
 	}
-	for _, d := range []string{"a.default", "b.default"} {
-		if _, err := os.Stat(filepath.Join(dir, d, strings.TrimSuffix(d, ".default")+".e1.funscript")); err != nil {
+	for _, d := range []string{"a", "b"} {
+		if _, err := os.Stat(filepath.Join(dir, d, d+".e1.funscript")); err != nil {
 			t.Errorf("%s: %v", d, err)
 		}
 	}

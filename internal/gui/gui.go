@@ -99,7 +99,7 @@ func newUI(g *gogpu.App, a *app.App) *ui {
 	return &ui{
 		gapp: g, app: a, cfg: config.Default(), preset: presets.Default,
 		input: state.NewSignal(""), outDir: state.NewSignal(""), presetName: state.NewSignal(""),
-		outName: state.NewSignal(""), outNameOn: state.NewSignal(false), presetSuffix: state.NewSignal(true),
+		outName: state.NewSignal(""), outNameOn: state.NewSignal(false), presetSuffix: state.NewSignal(false),
 		contentWarn: state.NewSignal(""),
 		info:        state.NewSignal("No input selected — browse or drop an audio file onto the window."),
 		status:      state.NewSignal("Ready"),

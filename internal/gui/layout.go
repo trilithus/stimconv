@@ -175,7 +175,7 @@ func (u *ui) presetRow() widget.Widget {
 			checkbox.New(checkbox.Label("Expert mode"), checkbox.Checked(u.expert),
 				checkbox.OnToggle(func(b bool) { u.post(func() { u.expert = b; u.rebuild() }) })),
 		).Gap(8).CrossAlign(primitives.CrossAxisCenter),
-		muted("Picking a preset loads it, and “[default]” resets every option. Save stores the current options under the typed name (letters, digits, - and _). The preset name also names the default output folder."),
+		muted("Picking a preset loads it, and “[default]” resets every option. Save stores the current options under the typed name (letters, digits, - and _). With “Add preset to folder name”, the preset name is also added to the default output folder."),
 	).Gap(4)
 }
 

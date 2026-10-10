@@ -52,7 +52,7 @@ func TestConvertWritesFunscripts(t *testing.T) {
 		cfg := config.Default()
 		cfg.Topology = topo
 		var log bytes.Buffer
-		res, err := Convert(context.Background(), cfg, Options{Input: in, Preset: "p_" + topo}, &log)
+		res, err := Convert(context.Background(), cfg, Options{Input: in, Preset: "p_" + topo, PresetSuffix: true}, &log)
 		if err != nil {
 			t.Fatalf("%s: %v\n%s", topo, err, log.String())
 		}
@@ -86,10 +86,10 @@ func TestConvertCancelled(t *testing.T) {
 
 func TestDefaultOutDir(t *testing.T) {
 	in := filepath.Join("music", "song.mp3")
-	if got, want := DefaultOutDir(in, "", FolderPreset("", false)), filepath.Join("music", "song.default"); got != want {
+	if got, want := DefaultOutDir(in, "", FolderPreset("", true)), filepath.Join("music", "song.default"); got != want {
 		t.Errorf("DefaultOutDir = %q, want %q", got, want)
 	}
-	if got, want := DefaultOutDir(in, "", FolderPreset("soft", true)), filepath.Join("music", "song"); got != want {
+	if got, want := DefaultOutDir(in, "", FolderPreset("soft", false)), filepath.Join("music", "song"); got != want {
 		t.Errorf("DefaultOutDir without preset suffix = %q, want %q", got, want)
 	}
 }
@@ -102,7 +102,7 @@ func TestOutName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(dir, "PEP11.default"); res.OutDir != want {
+	if want := filepath.Join(dir, "PEP11"); res.OutDir != want {
 		t.Errorf("OutDir = %q, want %q", res.OutDir, want)
 	}
 	for _, f := range res.Files {
