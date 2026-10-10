@@ -32,6 +32,7 @@ type Features struct {
 	Ch       [2]Channel
 	// HopRate stereo covariance, lightly smoothed
 	CLL, CLR, CRR []float32
+	CLQ           []float32 // quadrature part of CLR (see Raw.CLQ)
 }
 
 // Derive computes envelopes and rhythm descriptors.
@@ -85,6 +86,7 @@ func Derive(raw *Raw, modSplitHz, silenceDB float64) *Features {
 	f.CLL = movingAvg(raw.CLL, 3)
 	f.CLR = movingAvg(raw.CLR, 3)
 	f.CRR = movingAvg(raw.CRR, 3)
+	f.CLQ = movingAvg(raw.CLQ, 3)
 	return f
 }
 

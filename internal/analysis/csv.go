@@ -20,7 +20,7 @@ func (f *Features) WriteCSV(path string) error {
 			fmt.Fprintf(w, ",%s_%s", k, c)
 		}
 	}
-	fmt.Fprintln(w, ",cov_ll,cov_lr,cov_rr")
+	fmt.Fprintln(w, ",cov_ll,cov_lr,cov_rr,cov_lq")
 	n := len(f.CLL)
 	for i := 0; i < n; i++ {
 		t := float64(i) / HopRate
@@ -33,7 +33,7 @@ func (f *Features) WriteCSV(path string) error {
 				At(ch.Rate, FrameRate, t), At(ch.Duty, FrameRate, t), At(ch.Attack, FrameRate, t),
 				At(ch.Jitter, FrameRate, t), At(ch.Depth, FrameRate, t))
 		}
-		fmt.Fprintf(w, ",%.5g,%.5g,%.5g\n", f.CLL[i], f.CLR[i], f.CRR[i])
+		fmt.Fprintf(w, ",%.5g,%.5g,%.5g,%.5g\n", f.CLL[i], f.CLR[i], f.CRR[i], f.CLQ[i])
 	}
 	return w.Flush()
 }

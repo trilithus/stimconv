@@ -36,6 +36,10 @@ type Raw struct {
 	FormFactor [2][]float32 // mean|x| / peak over half-cycles
 	// HopRate, stereo covariance of the (current) waveforms
 	CLL, CLR, CRR []float32
+	// HopRate, covariance of L with R delayed by a quarter period of the
+	// carrier: the quadrature part, so CLR + i·CLQ keeps phase-shifted but
+	// coherent A/B content (3-phase signals) apart from unrelated content
+	CLQ []float32
 
 	// Samples far beyond full scale (|x| > OverloadLevel), e.g. a corrupt
 	// AAC frame, and when the first one occurred (s). They are clipped to
@@ -125,7 +129,11 @@ func Measure(src decode.Source, cc config.Circuit) (*Raw, error) {
 	}
 	bucketLen := sr / EnvRate
 	hopLen := sr / HopRate
-	var sLL, sLR, sRR float64
+	var sLL, sLR, sRR, sLQ float64
+	// delay line of R for the quadrature covariance; the lag follows the
+	// last measured carrier (300 Hz until one is known)
+	var ring [1024]float64
+	lag := int(fsr / (4 * 300))
 
 	buf := make([]float32, 2*8192)
 	idx := 0
@@ -163,6 +171,10 @@ func Measure(src decode.Source, cc config.Circuit) (*Raw, error) {
 			sLL += y[0] * y[0]
 			sLR += y[0] * y[1]
 			sRR += y[1] * y[1]
+			ring[idx&1023] = y[1]
+			if idx >= lag {
+				sLQ += y[0] * ring[(idx-lag)&1023]
+			}
 			idx++
 			if idx%bucketLen == 0 {
 				for c := 0; c < 2; c++ {
@@ -180,7 +192,14 @@ func Measure(src decode.Source, cc config.Circuit) (*Raw, error) {
 				raw.CLL = append(raw.CLL, float32(sLL*inv))
 				raw.CLR = append(raw.CLR, float32(sLR*inv))
 				raw.CRR = append(raw.CRR, float32(sRR*inv))
-				sLL, sLR, sRR = 0, 0, 0
+				raw.CLQ = append(raw.CLQ, float32(sLQ*inv))
+				sLL, sLR, sRR, sLQ = 0, 0, 0, 0
+				for c := 0; c < 2; c++ {
+					if f := raw.Carrier[c][len(raw.Carrier[c])-1]; f > 0 {
+						lag = min(int(math.Round(fsr/(4*float64(f)))), 1023)
+						break
+					}
+				}
 			}
 		}
 		if err != nil {

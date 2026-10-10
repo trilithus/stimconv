@@ -119,11 +119,20 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 			"%d samples far beyond full scale (first at %.2f s), likely a corrupt frame in the file; clipped to ±1 as the amplifier would",
 			n, raw.OverloadAt))
 	}
+	wiring := analysis.AnalyseWiring(raw)
+	if t := wiring.Verdict.Topology(); t != "" && t != cfg.Topology {
+		res.Warnings = append(res.Warnings, fmt.Sprintf(
+			"the A/B content suggests topology %s, but %s is selected (%.0f%% phase-coded, %.0f%% separate A/B content)",
+			t, cfg.Topology, 100*wiring.Phased, 100*(wiring.EnvDiff+wiring.OneSided)))
+	}
 	if err := ctx.Err(); err != nil {
 		return out, err
 	}
 	fmt.Fprintf(log, "%s: %s, %d Hz, %.1f s, analysed in %.1fs (topology %s)\n",
 		filepath.Base(in), what, raw.SampleRate, raw.Duration, time.Since(start).Seconds(), cfg.Topology)
+	if o.Stats || o.DryRun {
+		fmt.Fprintln(log, wiring)
+	}
 
 	dir := o.OutDir
 	if dir == "" {
