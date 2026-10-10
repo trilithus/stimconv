@@ -13,12 +13,12 @@ import (
 
 // ReadmeName is the settings report's file name: README.md inside a default
 // output folder (one input per folder), <input name>.md in a chosen folder,
-// where several inputs may share it.
-func ReadmeName(input string, customOutDir bool) string {
+// where several inputs may share it (<output name>.md with an OutName).
+func ReadmeName(input, outName string, customOutDir bool) string {
 	if !customOutDir {
 		return "README.md"
 	}
-	return strings.TrimSuffix(filepath.Base(input), filepath.Ext(input)) + ".md"
+	return OutBase(input, outName) + ".md"
 }
 
 // readmeInfo is what writeReadme reports besides the settings.

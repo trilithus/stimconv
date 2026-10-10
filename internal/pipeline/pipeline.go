@@ -22,8 +22,12 @@ import (
 
 // Options are the per-run settings that are not part of config.Config.
 type Options struct {
-	Input     string
-	OutDir    string // default: DefaultOutDir(Input, Preset)
+	Input  string
+	OutDir string // default: DefaultOutDir(Input, OutName, Preset)
+	// OutName replaces the input name (without extension) in the output
+	// names, e.g. "PEP11" for PEP11.fr.mp3 -> PEP11.alpha.funscript.
+	// "" uses the input name; see ValidateOutName.
+	OutName   string
 	Preset    string // names the default output folder; "" = "default"
 	DumpCSV   string // per-hop features CSV, empty = off
 	DryRun    bool   // analyse only, write no funscripts
@@ -35,14 +39,44 @@ type Options struct {
 }
 
 // DefaultOutDir is the output folder used when none is given: a folder next
-// to the input named after the input file (without extension) and the
-// preset, e.g. "track.default". preset must already be a safe folder name.
-func DefaultOutDir(input, preset string) string {
+// to the input named after the output name (see OutBase) and the preset,
+// e.g. "track.default". preset must already be a safe folder name.
+func DefaultOutDir(input, outName, preset string) string {
 	if preset == "" {
 		preset = "default"
 	}
-	base := strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
-	return filepath.Join(filepath.Dir(input), base+"."+preset)
+	return filepath.Join(filepath.Dir(input), OutBase(input, outName)+"."+preset)
+}
+
+// OutBase is the base of the output names: outName when set, otherwise the
+// input file name without its extension.
+func OutBase(input, outName string) string {
+	if n := strings.TrimSpace(outName); n != "" {
+		return n
+	}
+	return strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
+}
+
+// ValidateOutName checks an output name override: one file name component
+// without characters Windows refuses. "" (no override) is valid.
+func ValidateOutName(name string) error {
+	n := strings.TrimSpace(name)
+	switch {
+	case n == "":
+		return nil
+	case n == "." || n == "..":
+		return fmt.Errorf("output name %q is not a file name", name)
+	case strings.ContainsAny(n, `<>:"/\|?*`):
+		return fmt.Errorf(`output name %q contains one of < > : " / \ | ? *`, name)
+	case strings.HasSuffix(n, "."):
+		return fmt.Errorf("output name %q ends with a dot", name)
+	}
+	for _, r := range n {
+		if r < 0x20 {
+			return fmt.Errorf("output name %q contains a control character", name)
+		}
+	}
+	return nil
 }
 
 // CheckSeconds is how much of the input the content check looks at.
@@ -60,6 +94,9 @@ type Result struct {
 func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (Result, error) {
 	var out Result
 	if err := cfg.Validate(); err != nil {
+		return out, err
+	}
+	if err := ValidateOutName(o.OutName); err != nil {
 		return out, err
 	}
 	if err := ctx.Err(); err != nil {
@@ -136,7 +173,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 
 	dir := o.OutDir
 	if dir == "" {
-		dir = DefaultOutDir(in, o.Preset)
+		dir = DefaultOutDir(in, o.OutName, o.Preset)
 	}
 	out.OutDir = dir
 	if !o.DryRun {
@@ -144,7 +181,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 			return out, err
 		}
 	}
-	base := strings.TrimSuffix(filepath.Base(in), filepath.Ext(in))
+	base := OutBase(in, o.OutName)
 	var written []writtenAxis
 	for _, a := range res.Axes {
 		acts := a.Actions(cfg.Epsilon)
@@ -191,7 +228,7 @@ func Convert(ctx context.Context, cfg config.Config, o Options, log io.Writer) (
 	}
 	out.Hints = RestimHints(cfg, res.Axes)
 	if !o.DryRun {
-		readme := filepath.Join(dir, ReadmeName(in, o.OutDir != ""))
+		readme := filepath.Join(dir, ReadmeName(in, o.OutName, o.OutDir != ""))
 		preset := o.Preset
 		if preset == "" {
 			preset = "default"

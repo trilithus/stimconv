@@ -18,6 +18,7 @@ import (
 
 	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/decode"
+	"github.com/trilithus/stimconv/internal/pipeline"
 	"github.com/trilithus/stimconv/internal/presets"
 )
 
@@ -278,6 +279,22 @@ func (u *ui) outputSection() widget.Widget {
 			)),
 			btn("Browse…", button.Tonal, u.browseOutDir),
 		).Gap(8).CrossAlign(primitives.CrossAxisCenter),
+		primitives.HBox(
+			checkbox.New(checkbox.Label("Output name"), checkbox.CheckedSignal(u.outNameOn),
+				checkbox.OnToggle(func(bool) { u.post(u.relayout) })),
+			primitives.Expanded(textfield.New(
+				textfield.ValueSignal(u.outName),
+				textfield.Placeholder("name without extension, e.g. PEP11 for PEP11.fr.mp3"),
+				textfield.DisabledFn(func() bool { return !u.outNameOn.Get() }),
+				textfield.Validation(func(s string) string {
+					if err := pipeline.ValidateOutName(s); err != nil {
+						return err.Error()
+					}
+					return ""
+				}),
+				textfield.OnChange(func(string) { u.relayout() }),
+			)),
+		).Gap(8).CrossAlign(primitives.CrossAxisCenter),
 		newWrapLabel(u.defaultOutText, 11, colMuted, 4),
 		primitives.HBox(
 			checkbox.New(checkbox.Label("Print statistics"), checkbox.CheckedSignal(u.stats)),
@@ -286,8 +303,8 @@ func (u *ui) outputSection() widget.Widget {
 			primitives.Expanded(primitives.Box()),
 			button.New(button.TextReadonlySignal(state.NewComputed(startLabel, u.running)), button.OnClick(u.startOrCancel),
 				button.DisabledReadonlySignal(state.NewComputed(func() bool {
-					return !u.running.Get() && (u.input.Get() == "" || u.optErr.Get() != "")
-				}, u.running, u.input, u.optErr))),
+					return !u.running.Get() && (u.input.Get() == "" || u.optErr.Get() != "" || u.outNameErr() != "")
+				}, u.running, u.input, u.optErr, u.outName, u.outNameOn))),
 		).Gap(12).CrossAlign(primitives.CrossAxisCenter),
 		u.logSection(),
 	)

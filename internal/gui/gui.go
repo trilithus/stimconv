@@ -47,6 +47,8 @@ type ui struct {
 	preset string   // selected preset in the dropdown
 
 	input, outDir, presetName state.Signal[string]
+	outName                   state.Signal[string] // output name override, used when outNameOn
+	outNameOn                 state.Signal[bool]
 	info, status              state.Signal[string]
 	contentWarn               state.Signal[string] // stim/music check of the input
 	stats, dryRun, running    state.Signal[bool]
@@ -96,6 +98,7 @@ func newUI(g *gogpu.App, a *app.App) *ui {
 	return &ui{
 		gapp: g, app: a, cfg: config.Default(), preset: presets.Default,
 		input: state.NewSignal(""), outDir: state.NewSignal(""), presetName: state.NewSignal(""),
+		outName: state.NewSignal(""), outNameOn: state.NewSignal(false),
 		contentWarn: state.NewSignal(""),
 		info:        state.NewSignal("No input selected — browse or drop an audio file onto the window."),
 		status:      state.NewSignal("Ready"),

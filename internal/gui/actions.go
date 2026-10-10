@@ -278,20 +278,51 @@ func contentWarning(p string, track int, tracks []decode.Track) string {
 	return "⚠ " + strings.ToUpper(c.String()[:1]) + c.String()[1:] + ". The conversion assumes an amplifier drive signal; music or speech will give a meaningless result."
 }
 
-// defaultOutText describes where output goes when no folder is set.
-func (u *ui) defaultOutText() string {
-	if strings.TrimSpace(u.outDir.Get()) != "" {
+// outNameValue is the output name override, "" when it is off.
+func (u *ui) outNameValue() string {
+	if !u.outNameOn.Get() {
 		return ""
 	}
+	return strings.TrimSpace(u.outName.Get())
+}
+
+// outNameErr explains why the output name override can't be used, "" if it can.
+func (u *ui) outNameErr() string {
+	n := u.outNameValue()
+	if n == "" {
+		return ""
+	}
+	if len(u.inputs) > 0 {
+		return "an output name applies to a single file; turn it off for a batch"
+	}
+	if err := pipeline.ValidateOutName(n); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// defaultOutText describes where output goes when no folder is set and how
+// the files are named.
+func (u *ui) defaultOutText() string {
+	if e := u.outNameErr(); e != "" {
+		return "⚠ " + strings.ToUpper(e[:1]) + e[1:] + "."
+	}
 	name := presets.FolderName(u.preset)
+	in := strings.TrimSpace(u.input.Get())
+	files := ""
+	if in != "" && len(u.inputs) == 0 {
+		files = " Files: " + pipeline.OutBase(in, u.outNameValue()) + ".<axis>.funscript."
+	}
+	if strings.TrimSpace(u.outDir.Get()) != "" {
+		return strings.TrimSpace(files)
+	}
 	if len(u.inputs) > 0 {
 		return "Default: a folder next to each input file, named <file name without extension>." + name
 	}
-	in := strings.TrimSpace(u.input.Get())
 	if in == "" {
-		return "Default: a folder next to the input file, named <file name without extension>." + name
+		return "Default: a folder next to the input file, named <output name>." + name
 	}
-	return "Default: " + pipeline.DefaultOutDir(in, name)
+	return "Default: " + pipeline.DefaultOutDir(in, u.outNameValue(), name) + "." + files
 }
 
 // probeInput checks that p can be decoded and lists its audio tracks.
@@ -374,6 +405,10 @@ func (u *ui) startOrCancel() {
 		}
 		return
 	}
+	if e := u.outNameErr(); e != "" {
+		u.logf("error: %s", e)
+		return
+	}
 	if !u.logOpen {
 		u.logOpen = true
 		u.rebuild()
@@ -385,6 +420,7 @@ func (u *ui) startOrCancel() {
 	}
 	base := pipeline.Options{
 		OutDir:     strings.TrimSpace(u.outDir.Get()),
+		OutName:    u.outNameValue(),
 		Preset:     presets.FolderName(u.preset),
 		DryRun:     u.dryRun.Get(),
 		Stats:      u.stats.Get(),
@@ -462,7 +498,7 @@ func duplicateTargets(inputs []string, outDir, preset string) []string {
 	for _, in := range inputs {
 		dir := outDir
 		if dir == "" {
-			dir = pipeline.DefaultOutDir(in, preset)
+			dir = pipeline.DefaultOutDir(in, "", preset)
 		}
 		key := filepath.Join(dir, strings.TrimSuffix(filepath.Base(in), filepath.Ext(in)))
 		if first, ok := seen[key]; ok {

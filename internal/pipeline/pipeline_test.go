@@ -85,9 +85,42 @@ func TestConvertCancelled(t *testing.T) {
 }
 
 func TestDefaultOutDir(t *testing.T) {
-	got := DefaultOutDir(filepath.Join("music", "song.mp3"), "")
+	got := DefaultOutDir(filepath.Join("music", "song.mp3"), "", "")
 	if want := filepath.Join("music", "song.default"); got != want {
 		t.Errorf("DefaultOutDir = %q, want %q", got, want)
+	}
+}
+
+func TestOutName(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "PEP11.fr.wav")
+	writeWAV(t, in, 2)
+	res, err := Convert(context.Background(), config.Default(), Options{Input: in, OutName: "PEP11"}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(dir, "PEP11.default"); res.OutDir != want {
+		t.Errorf("OutDir = %q, want %q", res.OutDir, want)
+	}
+	for _, f := range res.Files {
+		if b := filepath.Base(f); !strings.HasPrefix(b, "PEP11.") || strings.Contains(b, ".fr.") {
+			t.Errorf("funscript %q not named after OutName", b)
+		}
+	}
+	out := t.TempDir()
+	if _, err := Convert(context.Background(), config.Default(), Options{Input: in, OutDir: out, OutName: "PEP11"}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "PEP11.md")); err != nil {
+		t.Errorf("report not named after OutName: %v", err)
+	}
+	for _, bad := range []string{"a/b", `a\b`, "..", "x:y", "trail."} {
+		if ValidateOutName(bad) == nil {
+			t.Errorf("ValidateOutName(%q) accepted", bad)
+		}
+	}
+	if _, err := Convert(context.Background(), config.Default(), Options{Input: in, OutName: "../x"}, &bytes.Buffer{}); err == nil {
+		t.Error("Convert accepted a path as OutName")
 	}
 }
 
