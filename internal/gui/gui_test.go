@@ -93,6 +93,7 @@ func TestBuildAboutShot(t *testing.T) {
 		t.Fatal("about page missing")
 	}
 }
+
 // TestTrackSelector renders the input section with a multi-track file.
 func TestTrackSelector(t *testing.T) {
 	u := newTestUI(t)
