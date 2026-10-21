@@ -12,14 +12,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gogpu/ui/core/button"
-	"github.com/gogpu/ui/core/scrollview"
-	"github.com/gogpu/ui/primitives"
-	"github.com/gogpu/ui/widget"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/widget"
 )
 
 // License texts of everything linked into the binary (copied from the
-// module cache), the Inter font embedded by gogpu/ui, and restim, whose
+// module cache), the fonts embedded by Fyne, and restim, whose
 // formulas the mapping follows. Refresh them when dependencies change.
 //
 //go:embed licenses/*.txt
@@ -33,27 +33,41 @@ type credit struct {
 
 // moduleCredits maps linked Go modules to their authors and licenses.
 var moduleCredits = map[string]credit{
-	"github.com/coregx/signals":     {Who: "Andy Goryachev", License: "MIT"},
-	"github.com/go-audio/audio":     {Who: "go-audio authors", License: "Apache-2.0"},
-	"github.com/go-audio/riff":      {Who: "go-audio authors", License: "Apache-2.0"},
-	"github.com/go-audio/wav":       {Who: "go-audio authors", License: "Apache-2.0"},
-	"github.com/go-webgpu/goffi":    {Who: "Andrey Kolkov and GoGPU Contributors", License: "MIT"},
-	"github.com/gogpu/gg":           {Who: "Andrey Kolkov and GoGPU Contributors", License: "MIT"},
-	"github.com/gogpu/gogpu":        {Who: "Andrey Kolkov and GoGPU Contributors", License: "MIT"},
-	"github.com/gogpu/gpucontext":   {Who: "Andrey Kolkov and GoGPU Contributors", License: "MIT"},
-	"github.com/gogpu/gputypes":     {Who: "Andrey Kolkov and GoGPU Contributors", License: "MIT"},
-	"github.com/gogpu/naga":         {Who: "Andrey Kolkov and GoGPU Contributors", License: "MIT"},
-	"github.com/gogpu/ui":           {Who: "Andrey Kolkov and GoGPU Contributors", License: "MIT"},
-	"github.com/gogpu/wgpu":         {Who: "Andrey Kolkov and GoGPU Contributors", License: "MIT"},
-	"github.com/hajimehoshi/go-mp3": {Who: "Hajime Hoshi", License: "Apache-2.0"},
-	"github.com/icza/bitio":         {Who: "Andras Belicza", License: "Apache-2.0"},
-	"github.com/mewkiz/flac":        {Who: "mewkiz", License: "Unlicense (public domain)"},
-	"github.com/mewkiz/pkg":         {Who: "mewkiz", License: "Unlicense (public domain)"},
-	"github.com/mewpkg/term":        {Who: "mewpkg", License: "Unlicense (public domain)"},
-	"github.com/ncruces/zenity":     {Who: "Nuno Cruces", License: "MIT"},
-	"golang.org/x/image":            {Who: "The Go Authors", License: "BSD-3-Clause"},
-	"golang.org/x/sys":              {Who: "The Go Authors", License: "BSD-3-Clause"},
-	"golang.org/x/text":             {Who: "The Go Authors", License: "BSD-3-Clause"},
+	"fyne.io/fyne/v2":                  {Who: "Fyne.io developers", License: "BSD-3-Clause"},
+	"fyne.io/systray":                  {Who: "Fyne.io developers, getlantern", License: "Apache-2.0"},
+	"github.com/BurntSushi/toml":       {Who: "TOML authors", License: "MIT"},
+	"github.com/anthonynsimon/bild":    {Who: "Anthony Najjar Simon", License: "MIT"},
+	"github.com/clipperhouse/uax29/v2": {Who: "Matt Sherman", License: "MIT"},
+	"github.com/fsnotify/fsnotify":     {Who: "The Go Authors, fsnotify Authors", License: "BSD-3-Clause"},
+	"github.com/fyne-io/image":         {Who: "Fyne.io", License: "BSD-3-Clause"},
+	"github.com/fyne-io/oksvg":         {Who: "Steven R Wiley", License: "BSD-3-Clause"},
+	"github.com/go-audio/audio":        {Who: "go-audio authors", License: "Apache-2.0"},
+	"github.com/go-audio/riff":         {Who: "go-audio authors", License: "Apache-2.0"},
+	"github.com/go-audio/wav":          {Who: "go-audio authors", License: "Apache-2.0"},
+	"github.com/go-gl/gl":              {Who: "Eric Woroshow", License: "MIT"},
+	"github.com/go-gl/glfw/v3.4/glfw":  {Who: "The glfw3-go Authors, Marcus Geelnard, Camilla Löwy (GLFW)", License: "BSD-3-Clause, zlib (GLFW)"},
+	"github.com/go-text/render":        {Who: "go-text authors", License: "Unlicense or BSD-3-Clause"},
+	"github.com/go-text/typesetting":   {Who: "go-text authors", License: "Unlicense or BSD-3-Clause"},
+	"github.com/godbus/dbus/v5":        {Who: "Georg Reinke, Google", License: "BSD-2-Clause"},
+	"github.com/hajimehoshi/go-mp3":    {Who: "Hajime Hoshi", License: "Apache-2.0"},
+	"github.com/icza/bitio":            {Who: "Andras Belicza", License: "Apache-2.0"},
+	"github.com/jeandeaual/go-locale":  {Who: "Alexis Jeandeau", License: "MIT"},
+	"github.com/jsummers/gobmp":        {Who: "Jason Summers", License: "MIT"},
+	"github.com/mattn/go-runewidth":    {Who: "Yasuhiro Matsumoto", License: "MIT"},
+	"github.com/mewkiz/flac":           {Who: "mewkiz", License: "Unlicense (public domain)"},
+	"github.com/mewkiz/pkg":            {Who: "mewkiz", License: "Unlicense (public domain)"},
+	"github.com/mewpkg/term":           {Who: "mewpkg", License: "Unlicense (public domain)"},
+	"github.com/ncruces/zenity":        {Who: "Nuno Cruces", License: "MIT"},
+	"github.com/nfnt/resize":           {Who: "Jan Schlicht", License: "ISC"},
+	"github.com/nicksnyder/go-i18n/v2": {Who: "Nick Snyder", License: "MIT"},
+	"github.com/rymdport/portal":       {Who: "Jacob Alzén", License: "Apache-2.0"},
+	"github.com/srwiley/oksvg":         {Who: "Steven R Wiley", License: "BSD-3-Clause"},
+	"github.com/srwiley/rasterx":       {Who: "Steven R Wiley", License: "BSD-3-Clause"},
+	"github.com/yuin/goldmark":         {Who: "Yusuke Inuzuka", License: "MIT"},
+	"golang.org/x/image":               {Who: "The Go Authors", License: "BSD-3-Clause"},
+	"golang.org/x/net":                 {Who: "The Go Authors", License: "BSD-3-Clause"},
+	"golang.org/x/sys":                 {Who: "The Go Authors", License: "BSD-3-Clause"},
+	"golang.org/x/text":                {Who: "The Go Authors", License: "BSD-3-Clause"},
 }
 
 var (
@@ -92,8 +106,11 @@ func iconCredits(icons fs.FS) []credit {
 func credits(icons fs.FS) []credit {
 	out := iconCredits(icons)
 	out = append(out,
-		credit{What: "Inter typeface (embedded by gogpu/ui)", Who: "The Inter Project Authors", License: "SIL Open Font License 1.1", URL: "https://github.com/rsms/inter", Text: "font_inter.txt"},
-		credit{What: "Expanded UI icons (embedded by gogpu/ui)", Who: "JetBrains s.r.o.", License: "Apache-2.0", URL: "https://github.com/JetBrains/intellij-community"},
+		credit{What: "Noto Sans typeface (embedded by Fyne)", Who: "Google", License: "SIL Open Font License 1.1", URL: "https://fonts.google.com/noto", Text: "font_noto.txt"},
+		credit{What: "Inter Symbols typeface (embedded by Fyne)", Who: "The Inter Project Authors", License: "SIL Open Font License 1.1", URL: "https://github.com/rsms/inter", Text: "font_inter.txt"},
+		credit{What: "DejaVu Sans Mono Powerline typeface (embedded by Fyne)", Who: "Bitstream, Tavmjong Bah, DejaVu authors", License: "Bitstream Vera / Arev font license", URL: "https://dejavu-fonts.github.io", Text: "font_dejavu.txt"},
+		credit{What: "EmojiOne Color font (embedded by Fyne)", Who: "Adobe Systems Incorporated, artwork by EmojiOne", License: "MIT (font), CC BY 4.0 (artwork)", URL: "https://github.com/adobe-fonts/emojione-color", Text: "font_emojione.txt"},
+		credit{What: "Material Design icons (embedded by Fyne)", Who: "Google", License: "Apache-2.0", URL: "https://github.com/google/material-design-icons"},
 		credit{What: "restim (funscript axis model, formulas used by the mapping)", Who: "diglet48", License: "MIT", URL: "https://github.com/diglet48/restim", Text: "restim.txt"},
 		credit{What: "Go standard library", Who: "The Go Authors", License: "BSD-3-Clause", URL: "https://go.dev", Text: "go.txt"},
 	)
@@ -162,28 +179,34 @@ func aboutText(icons fs.FS) string {
 	return b.String()
 }
 
-// showAbout swaps the window to the About page (gogpu/ui's dialog sizes
-// itself without its content and does not lay it out or route events to it,
-// so it cannot hold a scrollable text).
+// showAbout swaps the window to the About page.
 func (u *ui) showAbout() {
 	u.about = true
 	u.rebuild()
 }
 
-func (u *ui) aboutPage() widget.Widget {
-	text := aboutText(u.icons)
-	body := newWrapLabel(func() string { return text }, 12, colText, 4000)
-	return panel(
+func (u *ui) aboutPage() fyne.CanvasObject {
+	txt := aboutText(u.icons)
+	body := widget.NewLabel(txt)
+	body.Wrapping = fyne.TextWrapWord
+	back := widget.NewButton("Back", func() { u.post(func() { u.about = false; u.rebuild() }) })
+	back.Importance = widget.HighImportance
+	return container.NewBorder(
 		heading("About stimconv"),
-		primitives.Expanded(primitives.Box(
-			scrollview.New(primitives.Box(body).PaddingRight(12), scrollview.ScrollYSignal(u.aboutScroll)),
-		).Padding(8).BorderStyle(1, widget.RGBA8(210, 212, 220, 255)).Rounded(6)),
-		primitives.HBox(
-			primitives.Expanded(primitives.Box()),
-			btn("Copy", button.TextOnly, func() { u.copyText(text, "attributions") }),
-			btn("Back", button.Filled, func() { u.post(func() { u.about = false; u.rebuild() }) }),
-		).Gap(8).CrossAlign(primitives.CrossAxisCenter),
+		container.NewHBox(layout.NewSpacer(), widget.NewButton("Copy", func() { u.copyText(txt, "attributions") }), back),
+		nil, nil,
+		container.NewVScroll(body),
 	)
+}
+
+// icon returns the UI icon name from u.icons, or fallback when it is missing.
+func (u *ui) icon(name string, fallback fyne.Resource) fyne.Resource {
+	if u.icons != nil {
+		if b, err := fs.ReadFile(u.icons, name); err == nil {
+			return fyne.NewStaticResource(name, b)
+		}
+	}
+	return fallback
 }
 
 // ffmpegNotice returns libs/ffmpeg/NOTICE.txt next to the executable (or one

@@ -140,8 +140,15 @@ The set of `.funscript` can be loaded into Restim for use with FOC-Stim.
 ```sh
 go build -o bin/ .
 go run ./tools/ffmpeg fetch   # bundled FFmpeg for a development build
-go run ./tools/release        # Windows release zip in dist/
+go run ./tools/release        # release package for this platform in dist/
 go test ./...
+```
+
+The GUI uses [Fyne](https://fyne.io), which needs cgo and a C compiler. On
+Windows that is MinGW-w64 (llvm-mingw on Arm64); on Debian/Ubuntu:
+
+```sh
+sudo apt-get install gcc pkg-config libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev
 ```
 
 FFmpeg is located through `--ffmpeg`, `$STIMCONV_FFMPEG`, `libs/ffmpeg/bin` or
@@ -198,5 +205,5 @@ that humans can understand, check and challenge it.
 stimconv is released under [MIT No Attribution](LICENSE) (MIT-0): do anything
 with it, no attribution required, no warranty and no liability. Third-party
 components keep their own licenses (MIT, BSD, Apache 2.0, public domain, SIL
-OFL for the Inter font, and LGPL for the separately bundled FFmpeg); see Help →
+OFL for the fonts embedded by Fyne, and LGPL for the separately bundled FFmpeg); see Help →
 About and [docs/FFMPEG.md](docs/FFMPEG.md).

@@ -17,18 +17,24 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Fyne build dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc pkg-config libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev
       - run: go vet ./...
       - run: go test ./...
 
   package:
     needs: test
-    runs-on: ubuntu-latest
+    # Fyne needs cgo, so every package is built natively on its platform
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       matrix:
         include:
-          - { os: windows, arch: amd64, name: windows-x64 }
-          - { os: windows, arch: arm64, name: windows-arm64 }
-          - { os: linux, arch: amd64, name: linux-x64 }
+          - { os: windows, arch: amd64, name: windows-x64, runner: windows-latest }
+          - { os: windows, arch: arm64, name: windows-arm64, runner: windows-11-arm }
+          - { os: linux, arch: amd64, name: linux-x64, runner: ubuntu-latest }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +42,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Fyne build dependencies
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y gcc pkg-config libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev
+      - name: C compiler (llvm-mingw for Arm64)
+        if: matrix.arch == 'arm64' && matrix.os == 'windows'
+        run: |
+          curl -sSL -o llvm-mingw.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-aarch64.zip
+          unzip -q llvm-mingw.zip -d "$RUNNER_TEMP"
+          echo "$(ls -d "$RUNNER_TEMP"/llvm-mingw-*/bin | head -1)" >> "$GITHUB_PATH"
       - uses: actions/cache@v4
         if: matrix.os == 'windows'
         with:

@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/trilithus/stimconv/internal/analysis"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"fyne.io/fyne/v2"
 	"github.com/ncruces/zenity"
 
+	"github.com/trilithus/stimconv/internal/analysis"
 	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/decode"
 	"github.com/trilithus/stimconv/internal/pipeline"
@@ -19,10 +20,7 @@ import (
 
 const (
 	maxLogLines = 2000
-	logFont     = 12
-	logLine     = 1.3 // line height multiplier
-	logView     = 134 // visible console height in px (box height minus padding)
-	logRows     = 300 // console rows kept after wrapping
+	logRows     = 300 // console lines shown
 )
 
 // logf appends to the console. A "warning:" or "error:" prefix (as in
@@ -34,25 +32,19 @@ func (u *ui) logf(format string, a ...any) {
 	if n := len(u.logLines); n > maxLogLines {
 		u.logLines = u.logLines[n-maxLogLines:]
 	}
+	u.logRev++
 	u.relayout()
 }
 
 // copyText puts s on the system clipboard and reports it in the console.
 func (u *ui) copyText(s, what string) {
-	if u.app == nil {
-		return
-	}
-	pp := u.app.PlatformProvider()
-	if pp == nil {
+	a := fyne.CurrentApp()
+	if a == nil {
 		u.logf("error: clipboard unavailable")
 		return
 	}
-	if err := pp.ClipboardWrite(s); err != nil {
-		u.logf("error: copy %s: %v", what, err)
-		return
-	}
+	a.Clipboard().SetContent(s)
 	u.status.Set("Copied " + what + " to the clipboard")
-	u.relayout()
 }
 
 func (u *ui) copyLog() { u.copyText(u.logText(tagSet), "log") }
@@ -68,6 +60,7 @@ func (u *ui) logText(set symbolSet) string {
 
 func (u *ui) clearLog() {
 	u.logLines = nil
+	u.logRev++
 	u.relayout()
 }
 

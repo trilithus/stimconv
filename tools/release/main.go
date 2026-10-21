@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/trilithus/stimconv/internal/ffmpegpin"
@@ -111,9 +112,14 @@ arising from the software, its use, or the use of the files it produces.
 	return nil
 }
 
+// goBuild builds with cgo, which the Fyne GUI needs. Building for another
+// platform than the host needs a C cross-compiler in CC.
 func goBuild(goos, arch, out string) error {
+	if (goos != runtime.GOOS || arch != runtime.GOARCH) && os.Getenv("CC") == "" {
+		return fmt.Errorf("the GUI needs cgo: build %s/%s on that platform, or set CC to a cross-compiler for it", goos, arch)
+	}
 	build := exec.Command("go", "build", "-trimpath", "-o", out, ".")
-	build.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+arch, "CGO_ENABLED=0")
+	build.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+arch, "CGO_ENABLED=1")
 	build.Stdout, build.Stderr = os.Stdout, os.Stderr
 	if err := build.Run(); err != nil {
 		return fmt.Errorf("go build: %w", err)

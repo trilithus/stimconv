@@ -1,20 +1,15 @@
 // Package gui is the graphical front end: one window laid out as
-// input → options → output, built with gogpu/ui.
+// input → options → output, built with Fyne.
 package gui
 
 import (
-	"image"
 	"io/fs"
 	"sync"
 
-	"github.com/gogpu/gogpu"
-	"github.com/gogpu/ui/app"
-	"github.com/gogpu/ui/desktop"
-	"github.com/gogpu/ui/dnd"
-	"github.com/gogpu/ui/geometry"
-	"github.com/gogpu/ui/state"
-	"github.com/gogpu/ui/theme/material3"
-	"github.com/gogpu/ui/widget"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/storage"
 
 	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/decode"
@@ -24,15 +19,12 @@ import (
 
 const winW, winH = 960, 860
 
-// ui holds all window state. Widgets and signals are only touched on the UI
+// ui holds all window state. Widgets and values are only touched on the UI
 // thread; other goroutines hand work over with post.
 type ui struct {
-	gapp  *gogpu.App
-	icons fs.FS // icon PNGs and their attribution .txt files
-	// iconCache keeps decoded icons across rebuilds: the renderer caches
-	// textures per image, and a fresh image each rebuild drew blank until hover.
-	iconCache map[string]image.Image
-	app       *app.App
+	win   fyne.Window // nil in tests that only build the content
+	live  bool        // post schedules drain via fyne.Do (false in tests, which drain themselves)
+	icons fs.FS       // icon PNGs and their attribution .txt files
 
 	cfg    config.Config
 	expert bool
@@ -47,22 +39,29 @@ type ui struct {
 	selGen int      // bumped on every selection; stale probe results are dropped
 	preset string   // selected preset in the dropdown
 
-	input, outDir, presetName state.Signal[string]
-	outName                   state.Signal[string] // output name override, used when outNameOn
-	outNameOn                 state.Signal[bool]
-	subfolder                 state.Signal[bool] // default output goes to a folder next to the input
-	presetSuffix              state.Signal[bool] // that folder ends in .<preset>
-	info, status              state.Signal[string]
-	contentWarn               state.Signal[string] // stim/music check of the input
-	guidance                  state.Signal[string] // stim and wiring hint for the input
-	wiringCancel              func()               // stops the running wiring check
-	stats, dryRun, running    state.Signal[bool]
-	optScroll, logScroll      state.Signal[float32]
-	aboutScroll               state.Signal[float32]
-	optErr                    state.Signal[string]
-	rev                       state.Signal[int] // bumped on every option change
+	input, outDir, presetName *value[string]
+	outName                   *value[string] // output name override, used when outNameOn
+	outNameOn                 *value[bool]
+	subfolder                 *value[bool] // default output goes to a folder next to the input
+	presetSuffix              *value[bool] // that folder ends in .<preset>
+	info, status              *value[string]
+	contentWarn               *value[string] // stim/music check of the input
+	guidance                  *value[string] // stim and wiring hint for the input
+	wiringCancel              func()         // stops the running wiring check
+	stats, dryRun, running    *value[bool]
+	optErr                    *value[string]
 	logLines                  []logEntry
+	logRev                    int // bumped on every console change
 	cancel                    func()
+
+	// refreshers copy state into the widgets of the current tree; build
+	// fills them and relayout runs them.
+	refreshers  []func()
+	refreshing  bool
+	optScroll   *container.Scroll // kept so a rebuild restores the position
+	split       *container.Split  // options above, output below
+	splitOffset float64
+	root        fyne.CanvasObject
 
 	// askOverwrite asks whether existing files may be overwritten or
 	// deleted (all = also for the rest of a batch); runs off the UI thread.
@@ -72,59 +71,53 @@ type ui struct {
 	queue []func()
 }
 
-// Run opens the window and blocks until it is closed. appIcon is the window
-// icon (X11; on Windows it comes from the exe resource, see setWindowIcon).
-func Run(icons fs.FS, appIcon image.Image) error {
-	m3 := material3.New(widget.Hex(0x3F5AA8))
-	preferX11OnWSL()
-	g := gogpu.NewApp(graphicsAPI(gogpu.DefaultConfig().WithTitle("stimconv").WithSize(winW, winH).WithIcon(appIcon)))
-	a := app.New(
-		app.WithWindowProvider(g),
-		app.WithPlatformProvider(g),
-		app.WithEventSource(g.EventSource()),
-		app.WithTheme(m3.AsTheme()),
-	)
-	u := newUI(g, a)
-	u.icons = icons
-	iconSet := false
-	g.OnUpdate(func(float64) {
-		if !iconSet {
-			iconSet = true
-			setWindowIcon("stimconv")
-		}
-		u.drain()
-	})
-	g.OnResize(func(w, h int) {
-		u.registerDrop(w, h)
-		u.post(u.relayout)
-	})
-	u.registerDrop(winW, winH)
-	u.rebuild()
-	return desktop.Run(g, a)
-}
-
-func newUI(g *gogpu.App, a *app.App) *ui {
-	return &ui{
-		gapp: g, app: a, cfg: config.Default(), preset: presets.Default,
-		input: state.NewSignal(""), outDir: state.NewSignal(""), presetName: state.NewSignal(""),
-		outName: state.NewSignal(""), outNameOn: state.NewSignal(false), presetSuffix: state.NewSignal(false), subfolder: state.NewSignal(false),
-		contentWarn: state.NewSignal(""), guidance: state.NewSignal(""),
-		info:   state.NewSignal("No input selected — browse or drop an audio file onto the window."),
-		status: state.NewSignal("Ready"),
-		stats:  state.NewSignal(false), dryRun: state.NewSignal(false), running: state.NewSignal(false),
-		optScroll: state.NewSignal[float32](0), logScroll: state.NewSignal[float32](0), aboutScroll: state.NewSignal[float32](0),
-		optErr: state.NewSignal(""), rev: state.NewSignal(0),
-		askOverwrite: askOverwrite,
+// Run opens the window and blocks until it is closed. iconPNG is the window
+// and application icon.
+func Run(icons fs.FS, iconPNG []byte) error {
+	a := app.NewWithID("io.github.trilithus.stimconv")
+	if iconPNG != nil {
+		a.SetIcon(fyne.NewStaticResource("icon.png", iconPNG))
 	}
+	w := a.NewWindow("stimconv")
+	u := newUI(w)
+	u.live = true
+	u.icons = icons
+	w.Resize(fyne.NewSize(winW, winH))
+	w.SetMainMenu(u.mainMenu())
+	w.SetOnDropped(func(_ fyne.Position, uris []fyne.URI) {
+		var paths []string
+		for _, p := range uris {
+			if p.Scheme() == storage.NewFileURI("/").Scheme() {
+				paths = append(paths, p.Path())
+			}
+		}
+		if len(paths) > 0 {
+			u.setInputs(paths)
+		}
+	})
+	u.rebuild()
+	w.ShowAndRun()
+	return nil
 }
 
-// post runs fn on the UI thread at the next frame. Safe from any goroutine.
+func newUI(w fyne.Window) *ui {
+	u := &ui{win: w, cfg: config.Default(), preset: presets.Default, askOverwrite: askOverwrite, splitOffset: 0.55}
+	u.input, u.outDir, u.presetName, u.outName = newValue(u, ""), newValue(u, ""), newValue(u, ""), newValue(u, "")
+	u.outNameOn, u.subfolder, u.presetSuffix = newValue(u, false), newValue(u, false), newValue(u, false)
+	u.contentWarn, u.guidance, u.optErr = newValue(u, ""), newValue(u, ""), newValue(u, "")
+	u.info = newValue(u, "No input selected — browse or drop an audio file onto the window.")
+	u.status = newValue(u, "Ready")
+	u.stats, u.dryRun, u.running = newValue(u, false), newValue(u, false), newValue(u, false)
+	return u
+}
+
+// post runs fn on the UI thread. Safe from any goroutine.
 func (u *ui) post(fn func()) {
 	u.mu.Lock()
 	u.queue = append(u.queue, fn)
 	u.mu.Unlock()
-	if u.gapp != nil {
-		u.gapp.RequestRedraw()
+	if u.live {
+		fyne.Do(u.drain)
 	}
 }
 
@@ -136,66 +129,51 @@ func (u *ui) drain() {
 	for _, fn := range q {
 		fn()
 	}
-	if len(q) > 0 {
-		u.relayout()
-	}
 }
 
-// relayout schedules a full layout pass. Signal-bound text only repaints and
-// containers cache child sizes (widget.LayoutChild), so text whose size
-// changes (console rows, status lines) stays at its old size without this.
+// relayout copies the current state into the widgets.
 func (u *ui) relayout() {
-	if u.app == nil {
-		return
+	if u.refreshing {
+		return // a widget callback fired while being updated
 	}
-	win := u.app.Window()
-	invalidateLayout(win.Root())
-	win.Context().Invalidate()
-}
-
-func invalidateLayout(w widget.Widget) {
-	if w == nil {
-		return
-	}
-	if c, ok := w.(interface{ InvalidateLayoutCache() }); ok {
-		c.InvalidateLayoutCache()
-	}
-	if r, ok := w.(interface{ SetNeedsRedraw(bool) }); ok {
-		r.SetNeedsRedraw(true) // function-backed text has no signal to mark it
-	}
-	if p, ok := w.(interface{ Children() []widget.Widget }); ok {
-		for _, ch := range p.Children() {
-			invalidateLayout(ch)
-		}
+	u.refreshing = true
+	defer func() { u.refreshing = false }()
+	for _, r := range u.refreshers {
+		r()
 	}
 }
 
 // rebuild recreates the widget tree, used when the set of visible options
 // changes. All values live in u, so nothing is lost but focus.
 func (u *ui) rebuild() {
-	u.app.SetRoot(u.build())
-	if u.gapp != nil {
-		u.gapp.RequestRedraw()
+	var off fyne.Position
+	if u.optScroll != nil {
+		off = u.optScroll.Offset
+	}
+	if u.split != nil {
+		u.splitOffset = u.split.Offset
+	}
+	u.root = u.build()
+	if u.optScroll != nil {
+		u.optScroll.Offset = off
+	}
+	if u.win != nil {
+		u.win.SetContent(u.root)
 	}
 }
 
-func (u *ui) registerDrop(w, h int) {
-	mgr := u.app.Window().DndManager()
-	mgr.UnregisterTarget(u)
-	mgr.RegisterTarget(u, geometry.NewRect(0, 0, float32(w), float32(h)))
-}
-
-// dnd.DropTarget: an audio file dropped anywhere on the window becomes the input.
-
-func (u *ui) CanAccept(d dnd.DragData) bool                        { return d.Kind == dnd.KindFile }
-func (u *ui) DragEnter(dnd.DragData)                               {}
-func (u *ui) DragOver(dnd.DragData, geometry.Point) dnd.DropEffect { return dnd.DropCopy }
-func (u *ui) DragLeave()                                           {}
-func (u *ui) Drop(d dnd.DragData, _ geometry.Point) bool {
-	p, ok := d.Payload.(dnd.FilePayload)
-	if !ok || len(p.Paths) == 0 {
-		return false
-	}
-	u.post(func() { u.setInputs(p.Paths) })
-	return true
+// mainMenu is the window's menu bar. Fyne adds Quit to the first menu.
+func (u *ui) mainMenu() *fyne.MainMenu {
+	return fyne.NewMainMenu(
+		fyne.NewMenu("File",
+			fyne.NewMenuItem("Open audio or video…", u.browseInput),
+			fyne.NewMenuItemSeparator(),
+			fyne.NewMenuItem("Export config…", u.exportConfig),
+			fyne.NewMenuItem("Import settings from report…", u.importReport),
+			fyne.NewMenuItem("Open Preset Folder", u.openPresetFolder),
+		),
+		fyne.NewMenu("Help",
+			fyne.NewMenuItem("About stimconv…", u.showAbout),
+		),
+	)
 }

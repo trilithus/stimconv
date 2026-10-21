@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogpu/ui/app"
-
 	"github.com/trilithus/stimconv/internal/pipeline"
 )
 
@@ -65,9 +63,8 @@ func TestBatch(t *testing.T) {
 	os.Setenv("STIMCONV_FFMPEG", filepath.Join(dir, "no-ffmpeg")) // keep the bad file from reaching a real ffmpeg
 	defer os.Unsetenv("STIMCONV_FFMPEG")
 
-	appl := app.New()
-	u := newUI(nil, appl)
-	appl.SetRoot(u.build())
+	u := newTestUI(t)
+	u.rebuild()
 	u.setInputs([]string{a, b, bad, a}) // duplicates are dropped
 	if len(u.inputs) != 3 || !strings.Contains(u.input.Get(), "3 files") {
 		t.Fatalf("inputs = %q, field = %q", u.inputs, u.input.Get())
@@ -110,9 +107,8 @@ func TestOverwritePrompt(t *testing.T) {
 	for _, p := range in {
 		writeStimWAV(t, p, 3)
 	}
-	appl := app.New()
-	u := newUI(nil, appl)
-	appl.SetRoot(u.build())
+	u := newTestUI(t)
+	u.rebuild()
 	var asked []string
 	answers := [][2]bool{{false, false}, {true, true}} // skip a, then overwrite all
 	u.askOverwrite = func(c []pipeline.Conflict, batch bool) (bool, bool) {
@@ -157,9 +153,8 @@ func TestWiringGuidance(t *testing.T) {
 		w := 2 * math.Pi * 800 * ts
 		return 0.5 * math.Sin(w), 0.5 * math.Sin(w+math.Pi/3)
 	})
-	appl := app.New()
-	u := newUI(nil, appl)
-	appl.SetRoot(u.build())
+	u := newTestUI(t)
+	u.rebuild()
 	for _, c := range []struct{ path, want string }{{quad, "quad-phase"}, {tri, "tri-phase"}} {
 		u.setInput(c.path)
 		if !pump(u, 30*time.Second, func() bool { g := u.guidance.Get(); return g != "" && !strings.Contains(g, "Checking") }) {

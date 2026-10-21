@@ -49,13 +49,9 @@ var tagSet = symbolTiers[len(symbolTiers)-1]
 
 // consoleSymbols returns the symbol tier the console uses: the first one
 // (emoji → unicode → text tags) whose characters the UI font draws.
-//
-// The choice is made at test time, not at run time: TestSymbolTiers draws
-// every tier offscreen against the font gogpu/ui embeds (Inter) and checks
-// that this is the first drawable one. Doing that offscreen rendering inside
-// the app broke all text rendering in the GPU window on Windows, so the app
-// must never call renderGlyphs.
+// TestSymbolTiers renders every tier with Fyne's default theme and checks
+// that consoleTier is the first drawable one.
 func consoleSymbols() symbolSet { return symbolTiers[consoleTier] }
 
 // consoleTier is the index into symbolTiers verified by TestSymbolTiers.
-const consoleTier = 1 // unicode: Inter has no emoji
+const consoleTier = 0 // emoji: Fyne bundles an emoji font

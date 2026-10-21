@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"embed"
-	"image"
-	"image/png"
 	"io/fs"
 )
 
@@ -31,12 +28,4 @@ func iconFS() fs.FS {
 		panic(err)
 	}
 	return sub
-}
-
-func appIcon() image.Image {
-	img, err := png.Decode(bytes.NewReader(appIconPNG))
-	if err != nil {
-		return nil
-	}
-	return img
 }

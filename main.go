@@ -18,8 +18,6 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/gogpu/gg/gpu" // GPU acceleration for the GUI
-
 	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/decode"
 	"github.com/trilithus/stimconv/internal/gui"
@@ -54,7 +52,7 @@ func main() {
 		if len(args) == 0 {
 			hideOwnConsole()
 		}
-		if err := gui.Run(iconFS(), appIcon()); err != nil {
+		if err := gui.Run(iconFS(), appIconPNG); err != nil {
 			fmt.Fprintln(os.Stderr, "stimconv:", err)
 			os.Exit(1)
 		}
