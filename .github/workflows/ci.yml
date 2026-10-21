@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# a newer run for the same branch or tag replaces the older one (also when
+# GitHub delivers a push event twice)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   # tools/release builds with -trimpath, which changes Go's build cache keys;
   # using it everywhere lets the package jobs reuse what vet/test compiled
