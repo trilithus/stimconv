@@ -102,7 +102,7 @@ func Run(icons fs.FS, iconPNG []byte) error {
 }
 
 func newUI(w fyne.Window) *ui {
-	u := &ui{win: w, cfg: config.Default(), preset: presets.Default, askOverwrite: askOverwrite, splitOffset: 0.55}
+	u := &ui{win: w, cfg: config.Default(), preset: presets.Default, askOverwrite: askOverwrite}
 	u.input, u.outDir, u.presetName, u.outName = newValue(u, ""), newValue(u, ""), newValue(u, ""), newValue(u, "")
 	u.outNameOn, u.subfolder, u.presetSuffix = newValue(u, false), newValue(u, false), newValue(u, false)
 	u.contentWarn, u.guidance, u.optErr = newValue(u, ""), newValue(u, ""), newValue(u, "")
@@ -150,9 +150,6 @@ func (u *ui) rebuild() {
 	var off fyne.Position
 	if u.optScroll != nil {
 		off = u.optScroll.Offset
-	}
-	if u.split != nil {
-		u.splitOffset = u.split.Offset
 	}
 	u.root = u.build()
 	if u.optScroll != nil {

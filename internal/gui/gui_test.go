@@ -133,11 +133,14 @@ func TestLiveUpdates(t *testing.T) {
 	w := shot(t, u, "", "", winW, winH)
 	u.info.Set("⚠ cannot decode: no frames")
 	u.status.Set("Done — 12 files in /some/long/output/directory")
-	for _, s := range []string{"⚠ cannot decode: no frames", "Done — 12 files in /some/long/output/directory"} {
-		if findText(w.Content(), s) == nil {
-			t.Errorf("%q not shown", s)
-		}
+	if findText(w.Content(), "⚠ cannot decode: no frames") == nil {
+		t.Error("info not shown")
 	}
+	walk(w.Content(), func(c fyne.CanvasObject) {
+		if f, ok := c.(*sunken); ok && f.text.Text != "Done — 12 files in /some/long/output/directory" {
+			t.Errorf("status bar shows %q", f.text.Text)
+		}
+	})
 	u.logf("hello console")
 	found := false
 	walk(w.Content(), func(c fyne.CanvasObject) {

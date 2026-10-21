@@ -9,9 +9,6 @@ import (
 
 // TestReadmeShots renders the screenshots used in the top-level README.
 // It runs only with STIMCONV_README_SHOTS=<dir>, e.g. docs/images.
-// shotH is tall enough to show the output section and log unscrolled.
-const shotH = 1150
-
 func TestReadmeShots(t *testing.T) {
 	dir := os.Getenv("STIMCONV_README_SHOTS")
 	if dir == "" {
@@ -28,7 +25,7 @@ func TestReadmeShots(t *testing.T) {
 	u.logf("%s", "warning: frequency: 67.9% of values outside the funscript range 500..1000 (data spans 660.5..2000); widen with --range frequency=500:2000 and set the same range in restim's funscript kit")
 	u.logf("wrote 10 funscripts and README.md to D:/stim/session_04.default")
 	u.logf("restim: use device FOC-Stim 4-phase; volume is strength-duration matched, so keep restim's tau at 355 us and its maximum carrier at 2000 Hz; funscript kit ranges: restim defaults")
-	shot(t, u, dir, "main", winW, shotH)
+	shot(t, u, dir, "main", winW, winH)
 
 	// Expert mode, tall enough to show the option groups.
 	u = newShotUI()
@@ -47,7 +44,7 @@ func TestReadmeShots(t *testing.T) {
 		{Index: 1, Codec: "aac", Layout: "stereo", Channels: 2, SampleRate: 44100, Title: "Stim A/B", Default: true},
 		{Index: 2, Codec: "ac3", Layout: "5.1(side)", Channels: 6, SampleRate: 48000},
 	}
-	shot(t, u, dir, "tracks", winW, shotH)
+	shot(t, u, dir, "tracks", winW, winH)
 
 	// Batch run with the content check and log levels.
 	u = newShotUI()
@@ -65,5 +62,5 @@ func TestReadmeShots(t *testing.T) {
 	u.logf("wrote 10 funscripts and README.md to D:/stim/b.default")
 	u.logf("— 3/3 · c.wav")
 	u.logf("%s", "warning: this may not be a stim drive signal: 4% of sampled frames are carrier-like")
-	shot(t, u, dir, "batch", winW, shotH)
+	shot(t, u, dir, "batch", winW, winH)
 }

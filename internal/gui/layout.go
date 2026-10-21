@@ -2,10 +2,12 @@ package gui
 
 import (
 	"fmt"
+	"image/color"
 	"slices"
 	"strconv"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
@@ -113,29 +115,126 @@ func (u *ui) entry(v *value[string], placeholder string) *widget.Entry {
 
 func (u *ui) build() fyne.CanvasObject {
 	u.refreshers = nil
-	u.optScroll, u.split = nil, nil
+	u.optScroll = nil
 	var root fyne.CanvasObject
 	if u.about {
 		root = container.NewPadded(u.aboutPage())
 	} else {
-		// options and output share the space; the divider is draggable
-		split := container.NewVSplit(u.optionsSection(), container.NewVScroll(u.outputSection()))
-		split.Offset = u.splitOffset
-		u.split = split
-		root = container.NewBorder(u.inputSection(), u.statusBar(), nil, nil, split)
+		// input and output keep their size (output grows with the log);
+		// the options fill the rest
+		root = container.NewBorder(u.inputSection(), container.NewVBox(u.outputSection(), u.statusBar()), nil, nil, u.optionsSection())
 	}
 	u.relayout()
 	return root
 }
 
-// statusBar is the bottom line of the window.
+// statusBar is the bottom line of the window, drawn like a classic
+// Windows status bar: a grey strip holding a sunken field. Long messages
+// are cut with an ellipsis.
 func (u *ui) statusBar() fyne.CanvasObject {
-	return u.dynText(func() string {
-		if s := u.status.Get(); s != "" {
-			return s
+	t := canvas.NewText("", colStatusText)
+	t.TextSize = theme.CaptionTextSize()
+	field := newSunken(t)
+	u.onRefresh(func() {
+		s := u.status.Get()
+		if s == "" {
+			s = "Ready"
 		}
-		return "Ready"
-	}, widget.MediumImportance)
+		if field.full != s {
+			field.full = s
+			field.Refresh()
+		}
+	})
+	return container.NewStack(canvas.NewRectangle(colStatusFace), container.New(statusPad{}, field))
+}
+
+var (
+	colStatusFace   = color.NRGBA{0xc0, 0xc0, 0xc0, 0xff}
+	colStatusShadow = color.NRGBA{0x80, 0x80, 0x80, 0xff}
+	colStatusLight  = color.NRGBA{0xff, 0xff, 0xff, 0xff}
+	colStatusText   = color.NRGBA{0x00, 0x00, 0x00, 0xff}
+)
+
+// statusPad insets the status field by 2 px.
+type statusPad struct{}
+
+func (statusPad) MinSize(o []fyne.CanvasObject) fyne.Size {
+	return o[0].MinSize().Add(fyne.NewSize(4, 4))
+}
+func (statusPad) Layout(o []fyne.CanvasObject, s fyne.Size) {
+	o[0].Move(fyne.NewPos(2, 2))
+	o[0].Resize(s.Subtract(fyne.NewSize(4, 4)))
+}
+
+// sunken is a one-line text field with a 1 px inset bevel (dark top/left,
+// white bottom/right).
+type sunken struct {
+	widget.BaseWidget
+	text *canvas.Text
+	full string
+}
+
+func newSunken(t *canvas.Text) *sunken {
+	s := &sunken{text: t}
+	s.ExtendBaseWidget(s)
+	return s
+}
+
+func (s *sunken) CreateRenderer() fyne.WidgetRenderer {
+	r := &sunkenRenderer{s: s,
+		top: canvas.NewRectangle(colStatusShadow), left: canvas.NewRectangle(colStatusShadow),
+		bottom: canvas.NewRectangle(colStatusLight), right: canvas.NewRectangle(colStatusLight)}
+	return r
+}
+
+type sunkenRenderer struct {
+	s                        *sunken
+	top, left, bottom, right *canvas.Rectangle
+}
+
+func (r *sunkenRenderer) MinSize() fyne.Size {
+	h := fyne.MeasureText("Ag", r.s.text.TextSize, r.s.text.TextStyle).Height
+	return fyne.NewSize(20, h+4)
+}
+
+func (r *sunkenRenderer) Layout(sz fyne.Size) {
+	r.top.Move(fyne.NewPos(0, 0))
+	r.top.Resize(fyne.NewSize(sz.Width, 1))
+	r.left.Move(fyne.NewPos(0, 0))
+	r.left.Resize(fyne.NewSize(1, sz.Height))
+	r.bottom.Move(fyne.NewPos(0, sz.Height-1))
+	r.bottom.Resize(fyne.NewSize(sz.Width, 1))
+	r.right.Move(fyne.NewPos(sz.Width-1, 0))
+	r.right.Resize(fyne.NewSize(1, sz.Height))
+	t := r.s.text
+	t.Text = ellipsize(r.s.full, sz.Width-10, t.TextSize, t.TextStyle)
+	t.Move(fyne.NewPos(5, 2))
+	t.Resize(fyne.NewSize(sz.Width-10, sz.Height-4))
+}
+
+func (r *sunkenRenderer) Refresh() {
+	r.Layout(r.s.Size())
+	canvas.Refresh(r.s)
+}
+
+func (r *sunkenRenderer) Objects() []fyne.CanvasObject {
+	return []fyne.CanvasObject{r.s.text, r.top, r.left, r.bottom, r.right}
+}
+
+func (r *sunkenRenderer) Destroy() {}
+
+// ellipsize shortens s with "…" until it fits in w.
+func ellipsize(s string, w, size float32, style fyne.TextStyle) string {
+	if fyne.MeasureText(s, size, style).Width <= w {
+		return s
+	}
+	rs := []rune(s)
+	for n := len(rs) - 1; n > 0; n-- {
+		if c := string(rs[:n]) + "…"; fyne.MeasureText(c, size, style).Width <= w {
+			return c
+		}
+	}
+	return ""
 }
 
 // ---- input ----
@@ -189,6 +288,9 @@ func (u *ui) optionsSection() fyne.CanvasObject {
 			continue
 		}
 		if o.Group != group {
+			if group == config.GroupOutput {
+				items = append(items, u.outputFiles()...)
+			}
 			group = o.Group
 			g := widget.NewLabel(group)
 			g.TextStyle.Bold = true
@@ -333,7 +435,9 @@ func (u *ui) validate() {
 
 // ---- output ----
 
-func (u *ui) outputSection() fyne.CanvasObject {
+// outputFiles is the options block for where the funscripts go and how
+// they are named.
+func (u *ui) outputFiles() []fyne.CanvasObject {
 	name := u.entry(u.outName, "name without extension, e.g. PEP11 for PEP11.fr.mp3")
 	name.Validator = func(s string) error { return pipeline.ValidateOutName(s) }
 	u.onRefresh(func() {
@@ -343,6 +447,22 @@ func (u *ui) outputSection() fyne.CanvasObject {
 			name.Disable()
 		}
 	})
+	g := widget.NewLabel("Output files")
+	g.TextStyle.Bold = true
+	return []fyne.CanvasObject{
+		widget.NewSeparator(), g,
+		container.NewBorder(nil, nil, withWidth(labelW, widget.NewLabel("Output folder")), widget.NewButton("Browse…", u.browseOutDir),
+			u.entry(u.outDir, "empty = default below")),
+		container.NewBorder(nil, nil, withWidth(labelW, u.check("Output name", u.outNameOn, nil)), nil, name),
+		container.NewHBox(
+			u.check("Write to a sub-folder", u.subfolder, nil),
+			u.check("Add preset to folder name", u.presetSuffix, func() bool { return !u.subfolder.Get() }),
+		),
+		u.dynText(u.defaultOutText, widget.LowImportance),
+	}
+}
+
+func (u *ui) outputSection() fyne.CanvasObject {
 	start := widget.NewButton("Start", u.startOrCancel)
 	start.Importance = widget.HighImportance
 	u.onRefresh(func() {
@@ -358,16 +478,8 @@ func (u *ui) outputSection() fyne.CanvasObject {
 		}
 	})
 	return panel(
-		heading("3  Output"),
-		container.NewBorder(nil, nil, nil, widget.NewButton("Browse…", u.browseOutDir),
-			u.entry(u.outDir, "Output folder (empty = default below)")),
-		container.NewBorder(nil, nil, u.check("Output name", u.outNameOn, nil), nil, name),
 		container.NewHBox(
-			u.check("Write to a sub-folder", u.subfolder, nil),
-			u.check("Add preset to folder name", u.presetSuffix, func() bool { return !u.subfolder.Get() }),
-		),
-		u.dynText(u.defaultOutText, widget.LowImportance),
-		container.NewHBox(
+			heading("3  Output"),
 			u.check("Print statistics", u.stats, nil),
 			u.check("Dry run (analyse only)", u.dryRun, nil),
 			layout.NewSpacer(),
