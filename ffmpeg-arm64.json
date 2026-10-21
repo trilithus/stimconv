@@ -1,12 +1,12 @@
 {
   "branch": "9.0",
   "variant": "winarm64-lgpl",
-  "release": "autobuild-2026-10-03-18-14",
-  "asset": "ffmpeg-n9.0.2-22-g46d8f462ee-winarm64-lgpl-9.0.zip",
-  "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-03-18-14/ffmpeg-n9.0.2-22-g46d8f462ee-winarm64-lgpl-9.0.zip",
-  "sha256": "ac38567267ebdd1f76c6bd966737af9c4e4277d26dfee8affef0426be5ac5b59",
-  "version": "n9.0.2-22-g46d8f462ee",
-  "ffmpeg_commit": "46d8f462ee",
-  "btbn_commit": "9acad4a9ef1583096af7836cc1e9c8cbcb4d3950",
-  "updated": "2026-10-04"
+  "release": "autobuild-2026-10-21-13-06",
+  "asset": "ffmpeg-n9.0.2-31-gc89d6ee1ca-winarm64-lgpl-9.0.zip",
+  "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-21-13-06/ffmpeg-n9.0.2-31-gc89d6ee1ca-winarm64-lgpl-9.0.zip",
+  "sha256": "3938d6d14de214fe6ebf1d0454195ead1a15d7c19f15369abaf1e4caa31adfe6",
+  "version": "n9.0.2-31-gc89d6ee1ca",
+  "ffmpeg_commit": "c89d6ee1ca",
+  "btbn_commit": "937868360a21d711ec94a33f5591d345ad9b7754",
+  "updated": "2026-10-21"
 }

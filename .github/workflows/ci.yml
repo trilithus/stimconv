@@ -13,8 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Fyne build dependencies
@@ -30,16 +30,17 @@ jobs:
       run:
         shell: bash
     strategy:
+      fail-fast: false # one broken platform shouldn't hide the others
       matrix:
         include:
           - { os: windows, arch: amd64, name: windows-x64, runner: windows-latest }
           - { os: windows, arch: arm64, name: windows-arm64, runner: windows-11-arm }
           - { os: linux, arch: amd64, name: linux-x64, runner: ubuntu-latest }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # git describe needs tags
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Fyne build dependencies
@@ -51,7 +52,7 @@ jobs:
           curl -sSL -o llvm-mingw.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-aarch64.zip
           unzip -q llvm-mingw.zip -d "$RUNNER_TEMP"
           echo "$(ls -d "$RUNNER_TEMP"/llvm-mingw-*/bin | head -1)" >> "$GITHUB_PATH"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         if: matrix.os == 'windows'
         with:
           path: .cache/ffmpeg
@@ -60,7 +61,7 @@ jobs:
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then export STIMCONV_VERSION="$GITHUB_REF_NAME"; fi
           go run ./tools/release -os ${{ matrix.os }} -arch ${{ matrix.arch }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: stimconv-${{ matrix.name }}
           path: dist/stimconv-*.*
@@ -73,7 +74,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
