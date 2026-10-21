@@ -15,7 +15,7 @@ import (
 
 // newTestUI builds the window content with Fyne's headless test app.
 func newTestUI(t *testing.T) *ui {
-	test.NewTempApp(t)
+	test.NewTempApp(t).Settings().SetTheme(appTheme())
 	u := newUI(nil)
 	u.icons = os.DirFS("../../assets")
 	return u

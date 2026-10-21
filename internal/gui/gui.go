@@ -75,6 +75,7 @@ type ui struct {
 // and application icon.
 func Run(icons fs.FS, iconPNG []byte) error {
 	a := app.NewWithID("io.github.trilithus.stimconv")
+	a.Settings().SetTheme(appTheme())
 	if iconPNG != nil {
 		a.SetIcon(fyne.NewStaticResource("icon.png", iconPNG))
 	}
