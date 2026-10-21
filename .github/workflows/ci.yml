@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # tools/release builds with -trimpath, which changes Go's build cache keys;
+  # using it everywhere lets the package jobs reuse what vet/test compiled
+  GOFLAGS: -trimpath
+
 jobs:
   test:
     runs-on: ubuntu-latest
