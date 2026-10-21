@@ -126,6 +126,15 @@ settings report. The report is named `README.md` in a sub-folder, or
 the preset, every option with its value and whether that value is the default,
 the files written, warnings and restim hints.
 
+## Usage
+
+The set of `.funscript` can be loaded into Restim for use with FOC-Stim.
+> [!TIP]
+> If you see `Restim/Focstim`'s current protection kick in a lot (ie it disconnects and shuts off), check 
+> your electrodes. Personally I found that electrodes where the conductive areas are too close to eachother
+> (such as the `Electrastim Silicone Noir Sirius`) tend to trigger the protection, whereas for example the
+> `E-Stim Systems Moaner` does not trigger the protection.
+
 ## Building
 
 ```sh
