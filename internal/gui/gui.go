@@ -97,6 +97,7 @@ func Run(icons fs.FS, iconPNG []byte) error {
 		}
 	})
 	u.rebuild()
+	watchDPI(a, w)
 	w.ShowAndRun()
 	return nil
 }
