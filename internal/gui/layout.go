@@ -302,7 +302,7 @@ func (u *ui) optionsSection() fyne.CanvasObject {
 		items = append(items, muted("More settings (mixing, circuit model, funscript ranges) are available in expert mode."))
 	}
 	items = append(items, u.dynText(u.optErr.Get, widget.DangerImportance))
-	u.optScroll = container.NewVScroll(container.NewVBox(items...))
+	u.optScroll = vscroll(container.NewVBox(items...))
 	return widget.NewCard("", "", container.NewBorder(heading("2  Options"), nil, nil, nil, u.optScroll))
 }
 
@@ -513,7 +513,7 @@ func (u *ui) logSection() fyne.CanvasObject {
 func (u *ui) console() fyne.CanvasObject {
 	rt := widget.NewRichText()
 	rt.Wrapping = fyne.TextWrapWord
-	scroll := container.NewVScroll(rt)
+	scroll := vscroll(rt)
 	scroll.SetMinSize(fyne.NewSize(0, 150))
 	sym := consoleSymbols()
 	shown := -1
@@ -540,4 +540,12 @@ func (u *ui) console() fyne.CanvasObject {
 		scroll.ScrollToBottom()
 	})
 	return scroll
+}
+
+// vscroll is a vertical scroll whose content leaves room on the right for
+// the scroll bar, which Fyne draws over the content.
+func vscroll(o fyne.CanvasObject) *container.Scroll {
+	gap := canvas.NewRectangle(color.Transparent)
+	gap.SetMinSize(fyne.NewSize(theme.ScrollBarSize()+theme.Padding(), 0))
+	return container.NewVScroll(container.NewBorder(nil, nil, nil, gap, o))
 }

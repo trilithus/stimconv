@@ -195,7 +195,7 @@ func (u *ui) aboutPage() fyne.CanvasObject {
 		heading("About stimconv"),
 		container.NewHBox(layout.NewSpacer(), widget.NewButton("Copy", func() { u.copyText(txt, "attributions") }), back),
 		nil, nil,
-		container.NewVScroll(body),
+		vscroll(body),
 	)
 }
 
