@@ -162,24 +162,43 @@ func flat(acts []funscript.Action) bool {
 
 // restimPeakRate simulates restim's FOC-Stim sender: every 60 Hz tick sends
 // the axes whose value changed, and once a second it resends all of them.
-// It returns the busiest second's message count and when it started.
+// restim recomputes the pulse rate from rate, width and carrier, so a change
+// in width or carrier sends the rate too. It returns the busiest second's
+// message count and when it started.
 func restimPeakRate(axes []writtenAxis, dur float64) (int, float64) {
 	secs := int(math.Ceil(dur))
 	if secs == 0 {
 		return 0, 0
 	}
 	perSec := make([]int, secs+1)
+	ticks := make(map[string]map[int]bool)
 	for _, a := range axes {
 		if len(a.Actions) == 0 {
 			continue
 		}
+		sent := make(map[int]bool)
+		ticks[a.Name] = sent
 		last := math.NaN()
 		sampleAt(a.Actions, dur, restimTickHz, func(k int, pos float64) {
 			if pos != last || k%restimTickHz == 0 {
 				perSec[k/restimTickHz]++
+				sent[k] = true
 			}
 			last = pos
 		})
+	}
+	if rate := ticks["pulse_frequency"]; rate != nil {
+		extra := make(map[int]bool)
+		for _, name := range []string{"pulse_width", "frequency"} {
+			for k := range ticks[name] {
+				if !rate[k] {
+					extra[k] = true
+				}
+			}
+		}
+		for k := range extra {
+			perSec[k/restimTickHz]++
+		}
 	}
 	peak, at := 0, 0
 	for s, n := range perSec {

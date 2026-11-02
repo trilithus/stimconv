@@ -122,6 +122,11 @@ force.
   large exponent, much steeper than for loudness.
 - restim's own `PulseFrequencyCalibration`: about ±5 % intensity change from
   10 to 100 Hz.
+- Graczyk et al. (2022): perceived frequency follows pulse rate only up to about
+  50–66 Hz; above that, quality shifts to tingling and buzz, and no rate
+  difference could be told apart at 100 Hz.
+- Ward & Lucas-Toumbourou (2007), Ward & Chuen (2009): with 50 Hz bursts, the
+  sensory threshold falls as bursts lengthen, down to about 7 ms.
 
 **Applied as.**
 
@@ -130,11 +135,17 @@ force.
   `gamma`.
 - No perceptual compensation is applied when pulse rate changes. The pulse rate
   is copied from the source, not altered, so there is nothing to compensate in
-  `pulses` mode. `volume`/continuous mode does switch to a 100 Hz pulse train,
+  `pulses` mode. `volume`/continuous mode does switch to a 70 Hz pulse train,
   a known gap (see [10](10-open-issues.md)).
+- `continuous_pulse_hz` defaults to 70 Hz because FOC-Stim's 5 ms minimum pause
+  forces a choice between rate and pulse length. 70 Hz stays above the 50–66 Hz
+  quality transition, and its 9.3 ms pulses stay above the 7 ms sensory limit;
+  5 ms pulses at 100 Hz would not.
 
 **Limits.** These studies mostly concern fingertip electrotactile displays and
-sensory, not motor, responses.
+sensory, not motor, responses. The 70 Hz choice combines nerve-cuff data from
+amputees (Graczyk) with skin-surface data at 1 and 4 kHz (Ward), so it is a
+reasoned starting point. It has not been tested on FOC-Stim.
 
 ## 7.6 Skin and electrode impedance
 
@@ -175,6 +186,7 @@ calibration and limits are left to restim.
 - Duente T, Schneegass S, Pfeiffer M. EMS in HCI: challenges and opportunities in actuating human bodies. *MobileHCI*, 2017.
 - Faltaous S, Koelle M, Schneegass S. From perception to action: a review and taxonomy on electrical muscle stimulation in HCI. *MUM*, 2022.
 - Goats GC. Interferential current therapy. *Br J Sports Med*, 1990.
+- Graczyk EL, Christie BP, He Q, Tyler DJ, Bensmaia SJ. Frequency shapes the quality of tactile percepts evoked through electrical stimulation of the nerves. *J Neurosci*, 2022.
 - Kaczmarek KA, Tyler ME, Okpara UO, Haase SJ. Interaction of perceived frequency and intensity in fingertip electrotactile stimulation. *IEEE Trans. Haptics*, 2017.
 - Keller T, Kuhn A. Electrodes for transcutaneous (surface) electrical stimulation. *J Automatic Control*, 2008.
 - Laufer Y, Elboim M. Effect of burst frequency and duration of kilohertz-frequency alternating currents and of low-frequency pulsed currents on strength of contraction, muscle fatigue, and perceived discomfort. *Phys Ther*, 2008.
@@ -191,5 +203,6 @@ calibration and limits are left to restim.
 - Vargas Luna JL, Krenn M, Cortés Ramírez JA, Mayr W. Dynamic impedance model of the skin–electrode interface for transcutaneous electrical stimulation. *PLoS ONE*, 2015.
 - Ward AR. Electrical stimulation using kilohertz-frequency alternating current. *Phys Ther*, 2009.
 - Ward AR, Chuen WLH. Lowering of sensory, motor, and pain-tolerance thresholds with burst duration using kilohertz-frequency alternating current electric stimulation: part II. *Arch Phys Med Rehabil*, 2009.
+- Ward AR, Lucas-Toumbourou S. Lowering of sensory, motor, and pain-tolerance thresholds with burst duration using kilohertz-frequency alternating current electric stimulation. *Arch Phys Med Rehabil*, 2007.
 - Ward AR, Robertson VJ, Ioannou H. The effect of duty cycle and frequency on muscle torque production using kilohertz frequency range alternating current. *Med Eng Phys*, 2004.
 - restim wiki (`reference/restim/restim.wiki`): `nerve-activation.md`, `software-basics.md`, `software-algos.md`, `estim-safety.md`, `skin-resistance.md`.

@@ -125,11 +125,22 @@ or above) and as volume modulation (below). It is based on muscle twitch fusion
 ([7.4](07-research-basis.md#74-muscle-fusion-and-fatigue)) and on restim's
 update resolution.
 
-### `continuous_pulse_hz` — `--continuous-pulse-hz` — default `100`
+### `continuous_pulse_hz` — `--continuous-pulse-hz` — default `70`
 
-FOC pulse rate used in continuous and volume modes. Width is set to 0.9 × the
-pulse period, so the train approximates a continuous carrier. 100 Hz is FOC-Stim's
-maximum. Lower values add a perceptible pulse rhythm of their own.
+FOC pulse rate used in continuous and volume modes. Pulses fill the period except
+for FOC-Stim's 5 ms minimum pause, so the rate sets the trade-off between rate
+and pulse length:
+
+| Rate | On | Duty |
+|---|---|---|
+| 100 Hz | 5 ms | 50 % |
+| **70 Hz** | 9.3 ms | 65 % |
+| 50 Hz | 15 ms | 75 % |
+
+Lower values add a perceptible pulse rhythm of their own
+([7.5](07-research-basis.md#75-electrotactile-perception)). Presets and reports
+saved with the old default of 100 keep it, and now play 5 ms on, 5 ms off; set
+70 to get the new default.
 
 ### `ifc` — `--ifc` — default `beat` — joined only
 

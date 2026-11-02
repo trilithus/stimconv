@@ -20,10 +20,11 @@ type RestimSetting struct {
 
 // The reference versions the defaults below were read from (the
 // reference/restim and reference/FOC-Stim submodules; a test keeps them in
-// sync).
+// sync). reference/restim is a fork that adds Jellyfin commits on top of this
+// release; they change none of the defaults below.
 const (
-	RestimVersion  = "v1.66"
-	FOCStimVersion = "v1.3.2"
+	RestimVersion  = "v1.67"
+	FOCStimVersion = "v2.0.3"
 )
 
 // restim's defaults, from reference/restim: qt_ui/settings.py (device
@@ -102,9 +103,9 @@ func RestimSettings(cfg config.Config, axes []*funscript.Axis) []RestimSetting {
 	if byName["pulse_frequency"] != nil {
 		// the original's pulse rate is reproduced, so its effect on loudness
 		// already is; restim's normalisation would apply it a second time
-		add(vol, "Pulse frequency normalization", "off", onOff(restimPulseNorm), restimPulseNorm)
+		add(vol, "Normalize intensity for pulse frequency", "off", onOff(restimPulseNorm), restimPulseNorm)
 		// pulse_frequency holds the pulse rate, not 1 / burst gap
-		add(vol, "Burst gap instead of pulse frequency", "off", onOff(restimBurstGapMode), restimBurstGapMode)
+		add(vol, "Use burst gap instead of pulse frequency", "off", onOff(restimBurstGapMode), restimBurstGapMode)
 	}
 
 	if cfg.Topology != "joined" {

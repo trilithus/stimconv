@@ -3,7 +3,8 @@
 	url = https://github.com/diglet48/FOC-Stim.git
 [submodule "reference/restim"]
 	path = reference/restim
-	url = https://github.com/diglet48/restim.git
+	url = https://github.com/trilithus/restim.git
+	branch = feature/jellyfin_media_source
 [submodule "reference/FOC-Stim-esp32"]
 	path = reference/FOC-Stim-esp32
 	url = https://github.com/diglet48/FOC-Stim-esp32.git

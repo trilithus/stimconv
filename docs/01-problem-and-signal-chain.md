@@ -61,7 +61,7 @@ These limits come from the reference code and hardware, not from stimconv.
 | Original box | FOC-Stim via restim | Consequence |
 |---|---|---|
 | Two fully independent channels: own carrier, own envelope, any waveform | **One** carrier and **one** pulse train shared by all electrodes; per-electrode *distribution*, not per-electrode signals | Independent A/B content must be merged, alternated or approximated ([6.5](06-mapping.md#65-ab-strategies-dual)) |
-| Continuous waveforms, arbitrary burst lengths | Wavelets of 3–20 carrier cycles, at most 35 ms, at 1–100 pulses/s | Long bursts are shortened, or moved into the volume axis |
+| Continuous waveforms, arbitrary burst lengths | Wavelets of 3–20 carrier cycles, at most 35 ms, with at least 5 ms between them | Long bursts are shortened, or moved into the volume axis; a steady carrier becomes a pulse train at about 65 % duty |
 | Any carrier the audio can carry (up to 2.4 kHz observed) | Carrier 300–2000 Hz | Higher carriers are clamped |
 | Square, sine, anything else | Sine-based wavelets | Waveform shape is converted into an equivalent intensity ([6.3](06-mapping.md#63-intensity)) |
 | Voltage drive through a resistor and transformer | Closed-loop current target | The original current is estimated with a circuit model ([3](03-original-hardware-model.md)) |

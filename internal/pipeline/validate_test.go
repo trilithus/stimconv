@@ -54,6 +54,23 @@ func TestValidateStructure(t *testing.T) {
 	}
 }
 
+// restim recomputes the pulse rate from width and carrier, so it is sent
+// whenever they change, even while the funscript's rate stays flat.
+func TestRestimPeakRatePulseRateFollowsCarrier(t *testing.T) {
+	ramp := func(name string) writtenAxis {
+		return writtenAxis{Name: name, Actions: []funscript.Action{{At: 0, Pos: 0}, {At: 10000, Pos: 100}}}
+	}
+	flatRate := writtenAxis{Name: "pulse_frequency", Actions: []funscript.Action{{At: 0, Pos: 50}, {At: 10000, Pos: 50}}}
+	both, _ := restimPeakRate([]writtenAxis{ramp("frequency"), ramp("pulse_width"), flatRate}, 10)
+	if both < 175 || both > 185 {
+		t.Errorf("peak = %d, want 180: carrier, width and the recomputed rate each tick", both)
+	}
+	alone, _ := restimPeakRate([]writtenAxis{ramp("volume"), flatRate}, 10)
+	if alone > 70 {
+		t.Errorf("peak = %d, want about 61: volume does not touch the rate", alone)
+	}
+}
+
 func TestValidateRestimLoad(t *testing.T) {
 	// 10 axes changing every 60 Hz tick is 600 msg/s
 	var axes []writtenAxis

@@ -41,8 +41,10 @@ current.
   recorded peak level as-is. The `*-normalized` presets scale each track to the
   full range instead, with strength-duration matched intensity that stays
   consistent with restim's tau calibration.
-- **FOC-Stim limits enforced.** Carrier 300–2000 Hz, pulse rate 1–100 Hz,
-  width 3–20 cycles (at most 35 ms), rise 2–10 cycles. Out-of-range data is
+- **FOC-Stim limits enforced.** Carrier 300–2000 Hz, pulse rate 1–200 Hz with
+  at least 5 ms between pulses, width 3–20 cycles (at most 35 ms), rise 2–10
+  cycles. Output is written for FOC-Stim firmware 2.x, which needs restim v1.67
+  or newer. Out-of-range data is
   reported, with suggested funscript kit ranges.
 - **Broad input support.** MPEG Layer II, FLAC and WAV decode natively. MPEG
   Layer III, video containers and other formats go through a bundled LGPL

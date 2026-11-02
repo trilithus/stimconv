@@ -96,7 +96,7 @@ func buildOptions() []Option {
 			Choice{"weighted", "weighted"}, Choice{"dominant", "dominant"}, Choice{"constant", "constant"}),
 		num("fusion_hz", "Fusion frequency (Hz)", "auto rhythm: rhythms at or above this rate become FOC pulses.",
 			GroupMixing, true, nil, func(c *Config) *float64 { return &c.FusionHz }),
-		num("continuous_pulse_hz", "Continuous pulse rate (Hz)", "FOC pulse rate for steady or volume-rendered segments.",
+		num("continuous_pulse_hz", "Continuous pulse rate (Hz)", "FOC pulse rate for steady or volume-rendered segments. Pulses fill the period except for FOC-Stim's 5 ms minimum pause: 70 Hz plays 9.3 ms on, 100 Hz only 5 ms on.",
 			GroupMixing, true, nil, func(c *Config) *float64 { return &c.ContinuousPulseHz }),
 		str("position", "Tri-phase position", "track: the A/B relation sets the position across three electrodes. ab: current only between FOC-Stim outputs A and B (two electrodes, C unconnected), as the original box played a mono track on one channel.",
 			GroupBasic, false, isJoined, func(c *Config) *string { return &c.Position },

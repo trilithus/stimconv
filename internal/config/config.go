@@ -50,7 +50,9 @@ type Config struct {
 	// volume modulation (individually felt twitches), above it as FOC pulses.
 	FusionHz float64 `json:"fusion_hz"`
 	// ContinuousPulseHz is the FOC pulse rate used when the rhythm is carried
-	// by the volume axis (or no rhythm is present).
+	// by the volume axis (or no rhythm is present). Pulses fill the period
+	// except for FOC-Stim's minimum pause, so a higher rate means shorter
+	// pulses: 70 Hz gives 9.3 ms on, 5 ms off.
 	ContinuousPulseHz float64 `json:"continuous_pulse_hz"`
 	// IFC (joined): "beat" renders |fA-fB| as the rhythm, "off" ignores it.
 	IFC string `json:"ifc"`
@@ -88,11 +90,20 @@ type Config struct {
 // FOC-Stim v4 axis limits (src/main_focstim_v4.cpp SimpleAxis declarations).
 var FOCLimits = map[string]Range{
 	"frequency":             {300, 2000},
-	"pulse_frequency":       {1, 100},
+	"pulse_frequency":       {1, 200}, // in practice limited by FOCMinPauseS
 	"pulse_width":           {3, 20},
 	"pulse_rise_time":       {2, 10},
 	"pulse_interval_random": {0, 1},
 }
+
+// FOC-Stim v4 pulse timing limits (src/bsp/config_g473re_focstim_v4.h).
+// Pulse rate, width and carrier together have to fit them: the firmware plays
+// a pulse of width/carrier seconds, then pauses for at least FOCMinPauseS, so
+// a pulse that leaves less room lowers the actual rate.
+const (
+	FOCMaxPulseS = 0.035 // longest pulse (s)
+	FOCMinPauseS = 0.005 // shortest pause between pulses (s)
+)
 
 // Default returns the default configuration, the "original" settings: the
 // volume follows the audio's peak level as recorded (abs against full scale,
@@ -111,7 +122,7 @@ func Default() Config {
 		Params:            "weighted",
 		Rhythm:            "auto",
 		FusionHz:          12,
-		ContinuousPulseHz: 100,
+		ContinuousPulseHz: 70,
 		IFC:               "beat",
 		Position:          "track",
 		Intensity:         "current",

@@ -120,7 +120,7 @@ func run(args []string) error {
 	fs.StringVar(&cfg.Params, "params", cfg.Params, "merge of differing A/B carrier/rhythm: weighted | dominant | constant (don't write pulse axes)")
 	fs.StringVar(&cfg.Rhythm, "rhythm", cfg.Rhythm, "render envelope rhythm as: pulses | volume | auto (by fusion frequency)")
 	fs.Float64Var(&cfg.FusionHz, "fusion-hz", cfg.FusionHz, "auto: rhythms at or above this rate become FOC pulses")
-	fs.Float64Var(&cfg.ContinuousPulseHz, "continuous-pulse-hz", cfg.ContinuousPulseHz, "FOC pulse rate for steady / volume-rendered segments")
+	fs.Float64Var(&cfg.ContinuousPulseHz, "continuous-pulse-hz", cfg.ContinuousPulseHz, "FOC pulse rate for steady / volume-rendered segments; pulses fill the period except for FOC-Stim's 5 ms minimum pause")
 	fs.StringVar(&cfg.Position, "position", cfg.Position, "joined: track (alpha/beta from the A/B relation) | ab (current only between FOC-Stim outputs A and B; two electrodes)")
 	fs.StringVar(&cfg.IFC, "ifc", cfg.IFC, "joined: interferential beat of different carriers: beat | off")
 	fs.StringVar(&cfg.Intensity, "intensity", cfg.Intensity, "volume measure: effective (strength-duration) | current")

@@ -13,6 +13,7 @@
 | Volume = max(A, B) | Simple, never exceeds either channel | In blend the quieter pair also receives current; in joined, the common electrode carries the sum | Sum or RMS variants |
 | p99 normalisation per track | Robust to spikes | Levels aren't comparable between tracks | `normalize = abs` with a fixed reference |
 | Auto overlap: multiplex independent content at 4 Hz | Keeps each pair's carrier and rhythm, isolates pairs | Adds a 4 Hz alternation and halves duty; transitions are 30 % of each slot | Compare against `blend` |
+| No loudness compensation for the 5 ms pause | Compensating would raise the peak current above the recorded level, against the `original` presets | Since firmware 2.0, steady sections carry about 28 % less charge per second than before (65 % duty instead of 90 %), while pulsed sections keep their measured duty, so steady sections may feel weak beside pulsed ones | A/B the balance between steady and pulsed sections of one track; compare `continuous_pulse_hz` 50, 70 and 100 |
 | Mono → equal positions (1,1,1,1) in dual | Both pairs were driven identically | FOC-Stim's (1,1,1,1) also sends current across the pairs, which the original never did | Compare `multiplex` with very low `mux_hz`, or physical rewiring |
 
 ## 10.2 Known technical limitations
@@ -29,8 +30,10 @@
   385 Hz can appear, though they are clipped to the funscript range.
 - **Rhythm thresholds** (depth 0.35, correlation 0.3, 85 % peak) are tuned on
   two tracks and are not options.
-- **Continuous mode adds a 100 Hz pulse structure** that the original didn't
-  have, with no perceptual compensation.
+- **Continuous mode adds a 70 Hz pulse structure** that the original didn't
+  have, with no perceptual compensation. FOC-Stim's 5 ms minimum pause means the
+  gaps can't be made shorter, so the modulation is deeper than the 1 ms gaps at
+  100 Hz that firmware 1.x allowed.
 - **Joined + circuit model**: the circuit is modelled per channel, which ignores
   how currents interact through the shared electrode.
 - **Lossy decoding artefacts** (pre-echo, smeared edges) pass straight through.
@@ -59,9 +62,19 @@ currents were: -0.001802 -0.000024 -0.445609 0.001123
 - FOC-Stim computes each pulse's voltages open-loop from a learned impedance
   model and limits volt-seconds with that same model. If the model is wrong,
   the limit doesn't protect against saturation.
-- Separately, the 4-phase path's volt-seconds check uses only electrodes 1–3.
-  That is a firmware bug, but it doesn't explain these events, because output 3
-  is included.
+- Separately, the 4-phase path's volt-seconds check used only electrodes 1–3.
+  That was a firmware bug, but it doesn't explain these events, because output 3
+  was included.
+
+**Firmware 2.0 changes that may matter; to be re-tested, not known to fix this.**
+
+- The volt-seconds check now covers electrode 4.
+- A pulse's tail of zero commands now also covers the first sample after the
+  pulse. Before, that sample could replay a stale voltage command from an earlier
+  pulse.
+- The pause between pulses is now at least 5 ms.
+
+Replaying the same track on firmware 2.x would show whether the trips remain.
 
 **Signal features that plausibly raise the risk.** Each is a hypothesis.
 

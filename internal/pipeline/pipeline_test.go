@@ -298,13 +298,14 @@ func TestRestimSettings(t *testing.T) {
 		got[s.Name] = s
 	}
 	for name, change := range map[string]bool{
-		"Minimum frequency [Hz]":               true, // 300 written, restim 500
-		"Maximum frequency [Hz]":               true, // tau-matched to 2000, restim 1000
-		"Nerve time constant [µs]":             false,
-		"Burst gap instead of pulse frequency": true,
-		"frequency limit min – max":            true,
-		"volume limit min – max":               false,
-		"Waveform amplitude [mA]":              false,
+		"Minimum frequency [Hz]":                   true, // 300 written, restim 500
+		"Maximum frequency [Hz]":                   true, // tau-matched to 2000, restim 1000
+		"Nerve time constant [µs]":                 false,
+		"Normalize intensity for pulse frequency":  true,
+		"Use burst gap instead of pulse frequency": true,
+		"frequency limit min – max":                true,
+		"volume limit min – max":                   false,
+		"Waveform amplitude [mA]":                  false,
 	} {
 		s, ok := got[name]
 		if !ok {
@@ -329,17 +330,21 @@ func TestRestimSettings(t *testing.T) {
 // The restim defaults in restim.go were read from the reference submodules;
 // a submodule bump must update the versions (and re-check the defaults).
 func TestReferenceVersions(t *testing.T) {
-	for dir, want := range map[string]string{"../../reference/restim": RestimVersion, "../../reference/FOC-Stim": FOCStimVersion} {
-		if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
-			t.Logf("%s absent, skipped", dir)
-			continue
-		}
-		out, err := exec.Command("git", "-C", dir, "describe", "--tags", "--always").Output()
-		if err != nil {
-			t.Skipf("git describe: %v", err)
-		}
-		if got := strings.TrimSpace(string(out)); got != want {
-			t.Errorf("%s is at %s, restim.go says %s: re-check the defaults there and update the version", dir, got, want)
-		}
+	const restim, foc = "../../reference/restim", "../../reference/FOC-Stim"
+	if _, err := os.Stat(filepath.Join(foc, ".git")); err != nil {
+		t.Logf("%s absent, skipped", foc)
+	} else if out, err := exec.Command("git", "-C", foc, "describe", "--tags", "--always").Output(); err != nil {
+		t.Skipf("git describe: %v", err)
+	} else if got := strings.TrimSpace(string(out)); got != FOCStimVersion {
+		t.Errorf("%s is at %s, restim.go says %s: re-check the defaults there and update the version", foc, got, FOCStimVersion)
+	}
+	// a fork with commits of its own and no release tags, so its version file
+	b, err := os.ReadFile(filepath.Join(restim, "version.py"))
+	if err != nil {
+		t.Logf("%s absent, skipped", restim)
+		return
+	}
+	if want := `VERSION = "` + RestimVersion + `"`; !strings.Contains(string(b), want) {
+		t.Errorf("%s/version.py is %q, restim.go says %s: re-check the defaults there and update the version", restim, b, RestimVersion)
 	}
 }

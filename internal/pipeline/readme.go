@@ -46,7 +46,7 @@ func writeReadme(path string, cfg config.Config, info readmeInfo) error {
 		src += fmt.Sprintf(" (%s, %.1f MB)", fmtDuration(info.Duration), float64(st.Size())/1e6)
 	}
 	fmt.Fprintf(&b, "restim funscripts for a FOC-Stim, converted from the audio drive signal in %s.\n\n", src)
-	fmt.Fprintf(&b, "Made with stimconv %s on %s. The restim settings below were checked against restim %s and FOC-Stim firmware %s; other versions may use different defaults.\n",
+	fmt.Fprintf(&b, "Made with stimconv %s on %s. The restim settings below were checked against restim %s and FOC-Stim firmware %s; other versions may use different defaults. Use restim v1.67 or newer with FOC-Stim firmware 2.x: restim refuses firmware of another major version.\n",
 		version(), time.Now().Format("2006-01-02"), RestimVersion, FOCStimVersion)
 
 	fmt.Fprintf(&b, "\n## Setup\n\n")

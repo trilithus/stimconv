@@ -144,9 +144,10 @@ between A and B may then be read as rhythm.
 
 ### Steady sections have a slight pulsing "texture"
 
-Steady and volume-rendered sections are played as a 100 Hz FOC pulse train
-(`--continuous-pulse-hz`). Keep it at 100 for the smoothest result. Lower values
-make the pulsing perceptible.
+Steady and volume-rendered sections are played as a 70 Hz FOC pulse train
+(`--continuous-pulse-hz`), because FOC-Stim firmware 2.x always leaves at least
+5 ms between pulses. Raising it makes the pulses shorter (100 Hz plays 5 ms on,
+5 ms off), which can feel weaker. Lowering it makes the pulsing perceptible.
 
 ---
 
@@ -232,6 +233,11 @@ that's expected here.
 
 At high power FOC-Stim waits for its boost converter between pulses, which
 lowers the actual rate. Lower the volume, or accept it.
+
+Firmware 2.x also always leaves at least 5 ms between pulses. stimconv writes
+pulse rates and widths that fit this, but funscripts made by older versions may
+ask for more: a 100 Hz train with 9 ms pulses now plays at 71 Hz. Convert the
+track again to get the rate that was written.
 
 ---
 

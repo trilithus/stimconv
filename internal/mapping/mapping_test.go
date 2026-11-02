@@ -112,6 +112,143 @@ func TestStayhLikeDual(t *testing.T) {
 	}
 }
 
+// wideRanges lets the tests see carriers and widths as they are, not clipped
+// to restim's default funscript kit ranges.
+func wideRanges(cfg *config.Config) {
+	cfg.Ranges["frequency"] = config.FOCLimits["frequency"]
+	cfg.Ranges["pulse_width"] = config.FOCLimits["pulse_width"]
+}
+
+// checkPause fails if any written step leaves less than FOC-Stim's minimum
+// pause, at the carrier and width restim will read.
+func checkPause(t *testing.T, res *Result, cfg config.Config) {
+	t.Helper()
+	vol, fc, pf, pw := axis(res, "volume"), axis(res, "frequency"), axis(res, "pulse_frequency"), axis(res, "pulse_width")
+	for i := range vol.Values {
+		if vol.Values[i] <= 0 {
+			continue
+		}
+		f := clamp(fc.Values[i], cfg.Ranges["frequency"])
+		w := clamp(pw.Values[i], cfg.Ranges["pulse_width"])
+		if pause := 1/pf.Values[i] - w/f; pause < config.FOCMinPauseS-1e-9 {
+			t.Fatalf("t=%.2f: %.1f Hz, %.1f cycles at %.0f Hz leaves a %.2f ms pause", vol.Times[i], pf.Values[i], w, f, pause*1000)
+		}
+	}
+}
+
+func warned(res *Result, text string) bool {
+	return strings.Contains(strings.Join(res.Warnings, "\n"), text)
+}
+
+// A steady carrier plays the default 70 Hz train with exactly the minimum
+// pause, whatever the carrier.
+func TestContinuousTrainKeepsMinimumPause(t *testing.T) {
+	for _, carrier := range []float64{650, 800, 1000, 1500} {
+		cfg := config.Default()
+		wideRanges(&cfg)
+		res := run(t, 3, cfg, func(t float64) (float64, float64) {
+			v := 0.5 * math.Sin(2*math.Pi*carrier*t)
+			return v, v
+		})
+		if pf := med(axis(res, "pulse_frequency"), 1, 2); math.Abs(pf-70) > 0.5 {
+			t.Errorf("%g Hz: pulse rate %.1f, want 70", carrier, pf)
+		}
+		f, w := med(axis(res, "frequency"), 1, 2), med(axis(res, "pulse_width"), 1, 2)
+		if off := (1.0/70 - w/f) * 1000; math.Abs(off-5) > 0.1 {
+			t.Errorf("%g Hz: %.1f cycles at %.0f Hz leaves a %.2f ms pause, want 5", carrier, w, f, off)
+		}
+		checkPause(t, res, cfg)
+		if warned(res, "minimum pause") {
+			t.Errorf("%g Hz: the continuous train should not warn: %v", carrier, res.Warnings)
+		}
+	}
+}
+
+// A high-duty rhythm keeps its rate, as the rate is the rhythm; the bursts get
+// shorter and the run says so.
+func TestHighDutyRhythmKeepsRate(t *testing.T) {
+	cfg := config.Default()
+	wideRanges(&cfg)
+	res := run(t, 6, cfg, func(t float64) (float64, float64) {
+		ph := math.Mod(t*50, 1)
+		v := 0.0
+		if ph < 0.95 {
+			v = 0.9 * (1 - 0.65*ph) * math.Sin(2*math.Pi*1000*t)
+		}
+		return v, v
+	})
+	if pf := med(axis(res, "pulse_frequency"), 1, 5); math.Abs(pf-50) > 1 {
+		t.Errorf("pulse rate %.1f, want the 50 Hz rhythm", pf)
+	}
+	if w := med(axis(res, "pulse_width"), 1, 5); math.Abs(w-15) > 0.5 {
+		t.Errorf("pulse width %.1f cycles, want 15 (20 ms period less the 5 ms pause)", w)
+	}
+	checkPause(t, res, cfg)
+	if !warned(res, "minimum pause") {
+		t.Errorf("expected a minimum pause warning, got %v", res.Warnings)
+	}
+}
+
+// The pause helper lowers the rate only once the pulse cannot get shorter.
+func TestFitPauseLowersRateAtMinimumWidth(t *testing.T) {
+	cfg := config.Default()
+	wideRanges(&cfg)
+	// 90 Hz at 400 Hz: 3 cycles are 7.5 ms, so 12.5 ms is the shortest period
+	pf, w, fit := fitPause(90, 3, 400, cfg)
+	if !fit || w != 3 || math.Abs(pf-80) > 1e-9 {
+		t.Errorf("got %.2f Hz, %.2f cycles, fit %v; want 80 Hz, 3 cycles", pf, w, fit)
+	}
+	// 40 Hz at 1 kHz: 25 ms period, room for 20 cycles
+	if pf, w, fit := fitPause(40, 23, 1000, cfg); !fit || pf != 40 || math.Abs(w-20) > 1e-9 {
+		t.Errorf("got %.2f Hz, %.2f cycles, fit %v; want 40 Hz, 20 cycles", pf, w, fit)
+	}
+	// already fits
+	if pf, w, fit := fitPause(40, 10, 1000, cfg); fit || pf != 40 || w != 10 {
+		t.Errorf("got %.2f Hz, %.2f cycles, fit %v; want it unchanged", pf, w, fit)
+	}
+	// the written carrier counts: the kit's 1 kHz ceiling leaves less room than 2 kHz
+	kit := config.Default()
+	if _, w, fit := fitPause(70, 18.6, 2000, kit); !fit || math.Abs(w-(1.0/70-0.005)*1000) > 1e-9 {
+		t.Errorf("got %.2f cycles, fit %v; want the width to fit the 1 kHz the funscript holds", w, fit)
+	}
+}
+
+// Weighted merging takes the rate from the louder channel and blends the
+// widths, which can leave no room for the pause without the final fit.
+func TestWeightedMergeKeepsMinimumPause(t *testing.T) {
+	cfg := config.Default()
+	wideRanges(&cfg)
+	burst := func(t, rate, duty float64) float64 {
+		if math.Mod(t*rate, 1) < duty {
+			return math.Sin(2 * math.Pi * 1000 * t)
+		}
+		return 0
+	}
+	res := run(t, 6, cfg, func(t float64) (float64, float64) {
+		return 0.8 * burst(t, 50, 0.6), 0.6 * burst(t, 20, 0.5)
+	})
+	checkPause(t, res, cfg)
+}
+
+// Every mode at the default kit ranges, where carriers and widths get clipped.
+func TestKitRangesKeepMinimumPause(t *testing.T) {
+	cfg := config.Default()
+	res := run(t, 6, cfg, func(t float64) (float64, float64) {
+		switch {
+		case t < 2: // steady, above the kit's carrier ceiling
+			return 0.5 * math.Sin(2*math.Pi*1500*t), 0.5 * math.Sin(2*math.Pi*1500*t)
+		case t < 4: // beat
+			return 0.4 * math.Sin(2*math.Pi*800*t), 0.4 * math.Sin(2*math.Pi*900*t)
+		}
+		v := 0.0
+		if math.Mod(t*30, 1) < 0.9 { // high-duty rhythm
+			v = 0.7 * math.Sin(2*math.Pi*700*t)
+		}
+		return v, v
+	})
+	checkPause(t, res, cfg)
+}
+
 func TestCrossfadeDualBlend(t *testing.T) {
 	cfg := config.Default()
 	cfg.Topology = "dual"

@@ -31,7 +31,7 @@ Each channel is in one of these modes:
 | Mode | When | Level taken from | Pulse parameters |
 |---|---|---|---|
 | **pulses** | rhythm present, and `rhythm = pulses`, or `rhythm = auto` with rate ≥ `fusion_hz` | slow envelope **S** at t | rate = rhythm (1–100 Hz); width = duty / rate × f_c cycles (3–20, ≤ 0.035·f_c); rise = attack × f_c cycles (2–10); randomisation = jitter if > 0.05 |
-| **volume** | rhythm present, and `rhythm = volume`, or `auto` with rate < `fusion_hz` | **max of E** within ±step/2 | rate = `continuous_pulse_hz`; width = 0.9 · f_c / rate cycles (3–20); rise = 2 |
+| **volume** | rhythm present, and `rhythm = volume`, or `auto` with rate < `fusion_hz` | **max of E** within ±step/2 | rate = `continuous_pulse_hz`; width = (1 / rate − 5 ms) · f_c cycles (3–20, ≤ 0.035·f_c); rise = 2 |
 | **continuous** | no rhythm detected | max of E within ±step/2 | as for volume |
 | **ifc** | joined only; see [6.7](#67-interferential-beat-joined) | as continuous | rate = beat |
 | **silent** | gated envelope | — | parameters held from the last active step |
@@ -46,9 +46,12 @@ Each channel is in one of these modes:
   is not applied twice.
 - *Slow rhythms → volume.* Below the fusion frequency each burst is felt as a
   separate twitch. Its timing and shape matter, and they are slow enough for
-  the ~30 ms update path. Meanwhile the FOC pulse train runs at a high rate
-  (`continuous_pulse_hz`, default 100 Hz). With width ≈ 0.9 × the pulse
-  period, it approximates the original's continuous carrier.
+  the ~30 ms update path. Meanwhile the FOC pulse train stands in for the
+  original's continuous carrier as closely as the 5 ms minimum pause allows
+  (`continuous_pulse_hz`, default 70 Hz: 9.3 ms on, 5 ms off, 65 % duty). A
+  higher rate means shorter pulses and a lower duty; a lower rate gains little
+  duty and starts to be felt as pulsing
+  ([7.5](07-research-basis.md#75-electrotactile-perception)).
 - *No rhythm → continuous*, with volume following the full envelope E. That is
   why slow patterns that fall outside the rhythm band, such as 1.9 Hz ramps,
   still come through.
@@ -63,6 +66,14 @@ challenge.
 clamped and counted. The tool reports the percentage of time affected, and
 suggests `rhythm = volume` to keep full burst length at the cost of rhythm
 fidelity.
+
+**Minimum pause.** Every step, after A and B are merged, must leave FOC-Stim's
+5 ms pause at the carrier and width the funscripts will hold. A burst that
+doesn't is shortened so the rate stays, because rhythm ranks above charge per
+pulse ([1.3](01-problem-and-signal-chain.md#13-what-similar-means-here)). Only
+when the burst is already at its minimum width, at a low carrier and a fast
+rhythm, is the rate lowered to what the device will play. Both are counted and
+reported in pulse and beat modes.
 
 ## 6.3 Intensity
 
@@ -203,6 +214,9 @@ channels are active (quieter ≥ 20 %) and the beat lies between 3 and 100 Hz:
 - width = 0.5 · f_c / beat cycles (half the beat period);
 - rise = 0.25 · f_c / beat cycles (smooth, like the beat's sinusoidal envelope);
 - randomisation 0; mode `ifc`.
+
+The 100 Hz limit comes from the pulses: half of a shorter period would leave
+less than FOC-Stim's 5 ms pause.
 
 Example: 800/900 Hz → 100 Hz pulse rate. The beat is not applied in `dual`,
 because isolated pairs don't interfere.

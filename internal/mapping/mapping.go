@@ -49,6 +49,7 @@ type counters struct {
 	n                 int
 	carrierLow, carHi int
 	widthClamp        int
+	pauseClamp        int
 	rateConflict      int
 	riseClamp         int
 }
@@ -171,7 +172,8 @@ func Map(f *analysis.Features, cfg config.Config) (*Result, error) {
 			// one current path: no common on which A and B could beat
 			if cfg.IFC == "beat" && cfg.Position != "ab" && math.Min(lA, lB) > 0.2*v && v > 0 {
 				beat := physio.Beat(cs[0].carrier, cs[1].carrier)
-				if beat >= 3 && beat <= foc["pulse_frequency"].Max {
+				// half-period pulses keep the minimum pause up to this beat
+				if beat >= 3 && beat <= 1/(2*config.FOCMinPauseS) {
 					fc := clamp(sh.carrier, foc["frequency"])
 					sh.mode = ModeIFC
 					sh.pf = beat
@@ -187,6 +189,13 @@ func Map(f *analysis.Features, cfg config.Config) (*Result, error) {
 		modeCount[sh.mode]++
 		vol[i] = v
 		carrier[i] = clampCount(sh.carrier, foc["frequency"], &cnt.carrierLow, &cnt.carHi)
+		if sh.mode != ModeSilent {
+			var fit bool
+			sh.pf, sh.w, fit = fitPause(sh.pf, sh.w, carrier[i], cfg)
+			if fit && (sh.mode == ModePulses || sh.mode == ModeIFC) {
+				cnt.pauseClamp++
+			}
+		}
 		pf[i], pw[i], pr[i], rnd[i] = sh.pf, sh.w, sh.r, sh.rnd
 		cnt.n++
 	}
@@ -272,8 +281,8 @@ func channelAt(f *analysis.Features, c int, t, step float64, cfg config.Config, 
 		s.pf = clamp(rate, foc["pulse_frequency"])
 		w := duty / rate * fc
 		s.w = clampCount(w, foc["pulse_width"], nil, &cnt.widthClamp)
-		if 0.035*fc < s.w {
-			s.w = 0.035 * fc
+		if config.FOCMaxPulseS*fc < s.w {
+			s.w = config.FOCMaxPulseS * fc
 			cnt.widthClamp++
 		}
 		s.r = clampCount(attack*fc, foc["pulse_rise_time"], nil, &cnt.riseClamp)
@@ -282,10 +291,29 @@ func channelAt(f *analysis.Features, c int, t, step float64, cfg config.Config, 
 		}
 	} else {
 		s.pf = cfg.ContinuousPulseHz
-		s.w = clamp(0.9*fc/s.pf, foc["pulse_width"])
+		s.w = clamp((1/s.pf-config.FOCMinPauseS)*fc, foc["pulse_width"])
+		s.w = math.Min(s.w, config.FOCMaxPulseS*fc)
 		s.r = foc["pulse_rise_time"].Min
 	}
 	return s
+}
+
+// fitPause makes a pulse train playable with FOC-Stim's minimum pause, using
+// the carrier and width as restim will read them from the funscripts. The rate
+// is the rhythm, which matters more than charge per pulse, so the pulse is
+// shortened first; the rate only drops once the pulse is at its minimum width.
+// It reports whether anything changed.
+func fitPause(pf, w, carrier float64, cfg config.Config) (float64, float64, bool) {
+	fc := clamp(carrier, cfg.Ranges["frequency"])
+	minW := math.Max(config.FOCLimits["pulse_width"].Min, cfg.Ranges["pulse_width"].Min)
+	room := (1/pf - config.FOCMinPauseS) * fc
+	if w <= room+1e-9 {
+		return pf, w, false
+	}
+	if room >= minW {
+		return pf, room, true
+	}
+	return 1 / (minW/fc + config.FOCMinPauseS), minW, true
 }
 
 // independent reports whether A and B carry different content at time t:
@@ -505,6 +533,9 @@ func (c counters) warnings() []string {
 	}
 	if c.widthClamp > 0 {
 		w = append(w, fmt.Sprintf("%.1f%% of the time rhythm bursts are longer than FOC-Stim's pulse width limit (20 cycles / 35 ms) and were shortened; --rhythm volume keeps their full length", pct(c.widthClamp)))
+	}
+	if pct(c.pauseClamp) >= 0.1 { // a few steps change nothing audible
+		w = append(w, fmt.Sprintf("%.1f%% of the time rhythm bursts left less than FOC-Stim's %g ms minimum pause; they were shortened to keep the rate, or the rate was lowered where they could not be", pct(c.pauseClamp), config.FOCMinPauseS*1000))
 	}
 	if c.riseClamp > 0 {
 		w = append(w, fmt.Sprintf("%.1f%% of the time burst attacks exceed FOC-Stim's rise time limit (10 cycles) and were clamped", pct(c.riseClamp)))
