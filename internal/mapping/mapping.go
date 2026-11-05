@@ -87,9 +87,14 @@ func Map(f *analysis.Features, cfg config.Config) (*Result, error) {
 	for i := 0; i < n; i++ {
 		t := float64(i) * step
 		times[i] = t
+		// the clamp counters are per step: a step counts once, whichever
+		// channels and limits it hits
+		var sc counters
 		for c := 0; c < 2; c++ {
-			states[i][c] = channelAt(f, c, t, step, cfg, tau, &cnt)
+			states[i][c] = channelAt(f, c, t, step, cfg, tau, &sc)
 		}
+		cnt.widthClamp += min(sc.widthClamp, 1)
+		cnt.riseClamp += min(sc.riseClamp, 1)
 		indep[i] = independent(f, states[i], t, cfg)
 	}
 	if cfg.Overlap == "auto" {
@@ -280,9 +285,11 @@ func channelAt(f *analysis.Features, c int, t, step float64, cfg config.Config, 
 		attack := analysis.At(ch.Attack, analysis.FrameRate, t)
 		s.pf = clamp(rate, config.Range{Min: foc["pulse_frequency"].Min, Max: cfg.MaxPulseHz()})
 		w := duty / rate * fc
-		s.w = clampCount(w, foc["pulse_width"], nil, &cnt.widthClamp)
+		s.w = clamp(w, foc["pulse_width"])
 		if config.FOCMaxPulseS*fc < s.w {
 			s.w = config.FOCMaxPulseS * fc
+		}
+		if s.w < w {
 			cnt.widthClamp++
 		}
 		s.r = clampCount(attack*fc, foc["pulse_rise_time"], nil, &cnt.riseClamp)

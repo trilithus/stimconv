@@ -201,7 +201,7 @@ func Default() Config {
 			"e4":                    {0, 1},
 			"alpha":                 {-1, 1},
 			"beta":                  {-1, 1},
-			"frequency":             {500, 1000},
+			"frequency":             {300, 2000}, // FOC-Stim's full carrier range (restim: 500-1000)
 			"pulse_frequency":       {0, 100},
 			"pulse_width":           {4, 20}, // restim: 4-10; 20 lets the longest-pulse train through
 			"pulse_rise_time":       {2, 20},

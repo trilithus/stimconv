@@ -261,7 +261,7 @@ Defaults equal restim's kit defaults:
 | `volume` | 0–1 | |
 | `e1`–`e4` | 0–1 | dual only |
 | `alpha`, `beta` | −1–1 | joined only |
-| `frequency` | 500–1000 Hz | widen to 500–2000 (or 300–2000) for high-carrier tracks |
+| `frequency` | 300–2000 Hz (restim: 500–1000) | FOC-Stim's full carrier range, so no carrier is clipped; set the same in restim's funscript kit |
 | `pulse_frequency` | 0–100 Hz | |
 | `pulse_width` | 4–20 cycles (restim: 4–10) | 20 lets the longest-pulse train and long bursts through |
 | `pulse_rise_time` | 2–20 cycles | FOC-Stim caps at 10 |

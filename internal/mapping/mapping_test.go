@@ -254,8 +254,9 @@ func TestFitPauseLowersRateAtMinimumWidth(t *testing.T) {
 	if pf, w, fit := fitPause(40, 10, 1000, cfg); fit || pf != 40 || w != 10 {
 		t.Errorf("got %.2f Hz, %.2f cycles, fit %v; want it unchanged", pf, w, fit)
 	}
-	// the written carrier counts: the kit's 1 kHz ceiling leaves less room than 2 kHz
+	// the written carrier counts: restim's 1 kHz kit ceiling leaves less room than 2 kHz
 	kit := config.Default()
+	kit.Ranges["frequency"] = config.Range{Min: 500, Max: 1000}
 	if _, w, fit := fitPause(70, 18.6, 2000, kit); !fit || math.Abs(w-(1.0/70-0.005)*1000) > 1e-9 {
 		t.Errorf("got %.2f cycles, fit %v; want the width to fit the 1 kHz the funscript holds", w, fit)
 	}
@@ -381,7 +382,11 @@ func TestHighCarrierClamped(t *testing.T) {
 		t.Errorf("pulse_frequency %.2f, want 14", pf)
 	}
 	joined := strings.Join(res.Warnings, "\n")
-	if !strings.Contains(joined, "exceeds FOC-Stim") || !strings.Contains(joined, "frequency:") {
+	if strings.Contains(joined, "200.0%") {
+		t.Errorf("clamp shares must be per step and at most 100%%:\n%s", joined)
+	}
+	// the default range is FOC-Stim's own, so only the carrier limit warns
+	if !strings.Contains(joined, "exceeds FOC-Stim") || strings.Contains(joined, "frequency:") {
 		t.Errorf("expected carrier and range warnings, got:\n%s", joined)
 	}
 }

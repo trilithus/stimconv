@@ -230,7 +230,7 @@ func TestReadme(t *testing.T) {
 		"| `gamma` | 1.5 | no (default 1) |",
 		"| `overlap` | auto (not used) | yes |", // dual-only option, topology is joined
 		"| `ifc` | beat | yes |",
-		"| `ranges.frequency.min` | 500 | yes |",
+		"| `ranges.frequency.min` | 300 | yes |",
 		"`my track.alpha.funscript`",
 		"## Setup",
 	} {
