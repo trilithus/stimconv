@@ -89,8 +89,26 @@ func TestBuiltins(t *testing.T) {
 		}
 	}
 	for _, b := range Builtins {
-		if want := map[bool]string{true: "ab", false: "track"}[b.Name == "[mono-original]"]; b.Config().Position != want {
+		if want := map[bool]string{true: "ab", false: "track"}[strings.HasPrefix(b.Name, "[mono-original")]; b.Config().Position != want {
 			t.Errorf("%s: position %q, want %q", b.Name, b.Config().Position, want)
+		}
+	}
+	// every built-in has a copy with the earlier 70 Hz train
+	for _, b := range Builtins[:len(Builtins)/2] {
+		c, ok := Lookup(strings.TrimSuffix(b.Name, "]") + "-fw2-70hz]")
+		if !ok {
+			t.Errorf("%s: no -fw2-70hz copy", b.Name)
+			continue
+		}
+		want := b.Config()
+		got := c.Config()
+		if want.ContinuousPulse != "longest" || got.ContinuousPulse != "rate" || got.ContinuousPulseHz != 70 ||
+			got.Firmware != config.CurrentFirmware || got.Ranges["pulse_width"] != (config.Range{Min: 4, Max: 10}) || got.Validate() != nil {
+			t.Errorf("%s copy = %+v", b.Name, got)
+		}
+		got.ContinuousPulse, got.Ranges = want.ContinuousPulse, want.Ranges
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s copy differs in more than the pulse train", b.Name)
 		}
 	}
 	if _, ok := Lookup("tri-original"); !ok {

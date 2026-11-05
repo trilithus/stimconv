@@ -66,6 +66,9 @@ type ui struct {
 	// askOverwrite asks whether existing files may be overwritten or
 	// deleted (all = also for the rest of a batch); runs off the UI thread.
 	askOverwrite func(c []pipeline.Conflict, batch bool) (ok, all bool)
+	// showNotice shows an informational dialog; it must not block the UI
+	// thread.
+	showNotice func(title, text string)
 
 	mu    sync.Mutex
 	queue []func()
@@ -103,7 +106,7 @@ func Run(icons fs.FS, iconPNG []byte) error {
 }
 
 func newUI(w fyne.Window) *ui {
-	u := &ui{win: w, cfg: config.Default(), preset: presets.Default, askOverwrite: askOverwrite}
+	u := &ui{win: w, cfg: config.Default(), preset: presets.Default, askOverwrite: askOverwrite, showNotice: showNotice}
 	u.input, u.outDir, u.presetName, u.outName = newValue(u, ""), newValue(u, ""), newValue(u, ""), newValue(u, "")
 	u.outNameOn, u.subfolder, u.presetSuffix = newValue(u, false), newValue(u, false), newValue(u, false)
 	u.contentWarn, u.guidance, u.optErr = newValue(u, ""), newValue(u, ""), newValue(u, "")

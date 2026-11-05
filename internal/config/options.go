@@ -69,6 +69,19 @@ func buildOptions() []Option {
 		str("topology", "Output", "Quad-phase: channel A on e1/e2 and B on e3/e4 (restim FOC-Stim 4-phase). Tri-phase: commons tied, written as alpha/beta (restim FOC-Stim 3-phase).",
 			GroupOutput, false, nil, func(c *Config) *string { return &c.Topology },
 			Choice{"dual", "Quad-phase (4 electrodes, FOC-Stim 4-phase)"}, Choice{"joined", "Tri-phase (commons joined, FOC-Stim 3-phase)"}),
+		{Key: "firmware", Label: "FOC-Stim firmware", Help: "The firmware the pulse timing is written for, recorded in the report. 2.x (with restim v1.67) pauses at least 5 ms between pulses; 1.x (with restim v1.66) has no minimum pause and accepts at most 100 pulses/s. " + MinFirmware.String() + " is the oldest supported firmware.",
+			Group: GroupOutput, Kind: Enum, Advanced: true, Choices: firmwareChoices(),
+			Get: func(c *Config) any {
+				if c.Firmware.IsZero() {
+					return CurrentFirmware.String()
+				}
+				return c.Firmware.String()
+			},
+			Set: func(c *Config, v any) {
+				if f, err := ParseFirmware(v.(string)); err == nil {
+					c.Firmware = f
+				}
+			}},
 
 		str("overlap", "When A and B overlap", "auto multiplexes only independent A/B content; blend mixes positions; dominant follows the louder channel; multiplex always alternates.",
 			GroupBasic, false, isDual, func(c *Config) *string { return &c.Overlap },
@@ -96,8 +109,11 @@ func buildOptions() []Option {
 			Choice{"weighted", "weighted"}, Choice{"dominant", "dominant"}, Choice{"constant", "constant"}),
 		num("fusion_hz", "Fusion frequency (Hz)", "auto rhythm: rhythms at or above this rate become FOC pulses.",
 			GroupMixing, true, nil, func(c *Config) *float64 { return &c.FusionHz }),
-		num("continuous_pulse_hz", "Continuous pulse rate (Hz)", "FOC pulse rate for steady or volume-rendered segments. Pulses fill the period except for FOC-Stim's 5 ms minimum pause: 70 Hz plays 9.3 ms on, 100 Hz only 5 ms on.",
-			GroupMixing, true, nil, func(c *Config) *float64 { return &c.ContinuousPulseHz }),
+		str("continuous_pulse", "Continuous pulse train", "Steady or volume-rendered segments on firmware 2.x. longest: the longest pulse FOC-Stim allows (20 cycles, at most 35 ms) and its 5 ms minimum pause, so the rate follows the carrier (40 Hz at 1 kHz) and 73-86% of the time carries current. rate: a fixed rate, the pulse filling the period except for the pause (70 Hz: 9.3 ms on, 65%), the earlier default.",
+			GroupMixing, true, func(c Config) bool { return !c.FW1() }, func(c *Config) *string { return &c.ContinuousPulse },
+			Choice{"longest", "longest pulses"}, Choice{"rate", "fixed rate"}),
+		num("continuous_pulse_hz", "Continuous pulse rate (Hz)", "Rate of the fixed-rate continuous train. Firmware 2.x: pulses fill the period except for the 5 ms minimum pause (70 Hz plays 9.3 ms on, 100 Hz only 5 ms). Firmware 1.x: pulses fill 90% of the period; 100 Hz was the default then.",
+			GroupMixing, true, func(c Config) bool { return !c.LongestPulse() }, func(c *Config) *float64 { return &c.ContinuousPulseHz }),
 		str("position", "Tri-phase position", "track: the A/B relation sets the position across three electrodes. ab: current only between FOC-Stim outputs A and B (two electrodes, C unconnected), as the original box played a mono track on one channel.",
 			GroupBasic, false, isJoined, func(c *Config) *string { return &c.Position },
 			Choice{"track", "from the track (3 electrodes)"}, Choice{"ab", "A-B only (2 electrodes)"}),
@@ -181,4 +197,13 @@ func rangeOpt(axis, end string) Option {
 			m[axis] = r
 			c.Ranges = m
 		}}
+}
+
+// firmwareChoices are the firmware releases the GUI offers: the current one
+// and the last 1.x (unsupported, kept for reproducing old output).
+func firmwareChoices() []Choice {
+	return []Choice{
+		{CurrentFirmware.String(), CurrentFirmware.String() + " (2.x, restim v1.67)"},
+		{Firmware1.String(), Firmware1.String() + " (1.x, restim v1.66; unsupported)"},
+	}
 }

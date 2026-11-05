@@ -6,8 +6,9 @@ import (
 )
 
 // flatten collects the JSON leaf paths of v.
+// The firmware version is one option (shown as v2.0.3), so it is a leaf.
 func flatten(prefix string, v any, out map[string]bool) {
-	if m, ok := v.(map[string]any); ok {
+	if m, ok := v.(map[string]any); ok && prefix != "firmware" {
 		for k, c := range m {
 			p := k
 			if prefix != "" {

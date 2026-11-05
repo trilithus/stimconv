@@ -21,7 +21,7 @@ type Embedded struct {
 }
 
 // EncodePEM returns cfg as a PEM settings block (base64 of Embedded's JSON).
-// Version and Preset are repeated as PEM headers so the block can be told
+// Version, Preset and the firmware (as v2.0.3) are repeated as PEM headers so the block can be told
 // apart without decoding it.
 func EncodePEM(cfg Config, version, preset string) ([]byte, error) {
 	data, err := json.Marshal(Embedded{Version: version, Preset: preset, Config: cfg})
@@ -29,7 +29,7 @@ func EncodePEM(cfg Config, version, preset string) ([]byte, error) {
 		return nil, err
 	}
 	return pem.EncodeToMemory(&pem.Block{Type: PEMType,
-		Headers: map[string]string{"Version": version, "Preset": preset}, Bytes: data}), nil
+		Headers: map[string]string{"Version": version, "Preset": preset, "Firmware": cfg.Firmware.String()}, Bytes: data}), nil
 }
 
 // HasPEM reports whether data contains a settings block.
@@ -49,8 +49,12 @@ func DecodePEM(data []byte) (Embedded, error) {
 			continue
 		}
 		e := Embedded{Config: Default()}
+		e.Config.ContinuousPulse, e.Config.Firmware = "", FirmwareVersion{} // see Unmarshal
 		if err := json.Unmarshal(b.Bytes, &e); err != nil {
 			return Embedded{}, fmt.Errorf("settings block: %w", err)
+		}
+		if e.Config.ContinuousPulse == "" {
+			e.Config.ContinuousPulse = "rate"
 		}
 		return e, e.Config.Validate()
 	}

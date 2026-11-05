@@ -136,15 +136,63 @@ func checkPause(t *testing.T, res *Result, cfg config.Config) {
 	}
 }
 
+// The default longest-pulse train plays 20 cycles (at most 35 ms) and the
+// minimum pause, so the rate follows the carrier; firmware 1.x plays the
+// fixed rate with 90% fill and no pause.
+func TestContinuousTrainLongest(t *testing.T) {
+	for _, c := range []struct{ carrier, rate, width float64 }{
+		{500, 1 / (17.5/500 + 0.005), 17.5}, // 35 ms limit
+		{650, 1 / (20.0/650 + 0.005), 20},
+		{1000, 40, 20},
+		{1500, 1 / (20.0/1500 + 0.005), 20},
+	} {
+		cfg := config.Default()
+		wideRanges(&cfg)
+		res := run(t, 3, cfg, func(t float64) (float64, float64) {
+			v := 0.5 * math.Sin(2*math.Pi*c.carrier*t)
+			return v, v
+		})
+		pf, w := med(axis(res, "pulse_frequency"), 1, 2), med(axis(res, "pulse_width"), 1, 2)
+		if math.Abs(pf-c.rate) > 0.5 || math.Abs(w-c.width) > 0.1 {
+			t.Errorf("%g Hz: %.1f Hz, %.1f cycles; want %.1f Hz, %.1f cycles", c.carrier, pf, w, c.rate, c.width)
+		}
+		checkPause(t, res, cfg)
+		if warned(res, "minimum pause") {
+			t.Errorf("%g Hz: the continuous train should not warn: %v", c.carrier, res.Warnings)
+		}
+	}
+	// the funscript range caps the width as restim will read it
+	cfg := config.Default()
+	cfg.Ranges["pulse_width"] = config.Range{Min: 4, Max: 10}
+	res := run(t, 3, cfg, func(t float64) (float64, float64) {
+		v := 0.5 * math.Sin(2*math.Pi*800*t)
+		return v, v
+	})
+	if w, pf := med(axis(res, "pulse_width"), 1, 2), med(axis(res, "pulse_frequency"), 1, 2); math.Abs(w-10) > 0.1 || math.Abs(pf-1/(10.0/800+0.005)) > 0.5 {
+		t.Errorf("range 4-10: %.1f cycles at %.1f Hz", w, pf)
+	}
+
+	cfg = config.Default()
+	wideRanges(&cfg)
+	cfg.Firmware, cfg.ContinuousPulseHz = config.Firmware1, 100
+	res = run(t, 3, cfg, func(t float64) (float64, float64) {
+		v := 0.5 * math.Sin(2*math.Pi*1000*t)
+		return v, v
+	})
+	if pf, w := med(axis(res, "pulse_frequency"), 1, 2), med(axis(res, "pulse_width"), 1, 2); math.Abs(pf-100) > 0.5 || math.Abs(w-9) > 0.1 {
+		t.Errorf("firmware 1.x: %.1f Hz, %.1f cycles; want 100 Hz, 9 cycles", pf, w)
+	}
+}
+
 func warned(res *Result, text string) bool {
 	return strings.Contains(strings.Join(res.Warnings, "\n"), text)
 }
 
-// A steady carrier plays the default 70 Hz train with exactly the minimum
-// pause, whatever the carrier.
+// The fixed-rate train plays 70 Hz with exactly the minimum pause, whatever
+// the carrier.
 func TestContinuousTrainKeepsMinimumPause(t *testing.T) {
 	for _, carrier := range []float64{650, 800, 1000, 1500} {
-		cfg := config.Default()
+		cfg := config.Rate70(config.Default())
 		wideRanges(&cfg)
 		res := run(t, 3, cfg, func(t float64) (float64, float64) {
 			v := 0.5 * math.Sin(2*math.Pi*carrier*t)

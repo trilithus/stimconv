@@ -3,6 +3,8 @@ package config
 import (
 	"encoding/base64"
 	"encoding/pem"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -41,5 +43,31 @@ func TestPEMOlderAndInvalid(t *testing.T) {
 	}
 	if _, err := DecodePEM([]byte("no block " + base64.StdEncoding.EncodeToString([]byte("{}")))); err == nil {
 		t.Error("missing block not reported")
+	}
+}
+
+// Files written before the longest-pulse train keep the fixed-rate train
+// they were made with; new files round-trip the setting.
+func TestOlderFilesKeepRateTrain(t *testing.T) {
+	dir := t.TempDir()
+	old := filepath.Join(dir, "old.json")
+	if err := os.WriteFile(old, []byte(`{"topology":"dual","continuous_pulse_hz":70}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(old)
+	if err != nil || c.ContinuousPulse != "rate" || !c.Firmware.IsZero() || c.Topology != "dual" {
+		t.Fatalf("old file: %+v, %v", c, err)
+	}
+	cur := filepath.Join(dir, "new.json")
+	if err := Default().Save(cur); err != nil {
+		t.Fatal(err)
+	}
+	if c, err := Load(cur); err != nil || c.ContinuousPulse != "longest" {
+		t.Fatalf("new file: %q, %v", c.ContinuousPulse, err)
+	}
+	e, err := DecodePEM([]byte("-----BEGIN " + PEMType + "-----\n" +
+		base64.StdEncoding.EncodeToString([]byte(`{"config":{"gamma":1}}`)) + "\n-----END " + PEMType + "-----\n"))
+	if err != nil || e.Config.ContinuousPulse != "rate" {
+		t.Fatalf("old report block: %q", e.Config.ContinuousPulse)
 	}
 }

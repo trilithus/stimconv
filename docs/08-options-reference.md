@@ -125,9 +125,34 @@ or above) and as volume modulation (below). It is based on muscle twitch fusion
 ([7.4](07-research-basis.md#74-muscle-fusion-and-fatigue)) and on restim's
 update resolution.
 
+### `firmware` — `--firmware` — default `2`
+
+FOC-Stim firmware the pulse timing is written for. `2` (2.x, restim v1.67)
+leaves at least 5 ms between pulses and accepts up to 200 pulses/s. `1` (1.x,
+restim v1.66) has no minimum pause and accepts at most 100 pulses/s; the
+fixed-rate train then fills 90 % of the period (use `continuous_pulse_hz` 100
+for the old default).
+
+### `continuous_pulse` — `--continuous-pulse` — default `longest` — firmware 2.x
+
+Pulse train for continuous and volume modes. `longest` plays the longest pulse
+FOC-Stim allows (20 cycles, at most 35 ms) and then the minimum pause, so the
+rate follows the carrier:
+
+| Carrier | On | Rate | Duty |
+|---|---|---|---|
+| 650 Hz | 30.8 ms | 28 Hz | 86 % |
+| 1000 Hz | 20 ms | 40 Hz | 80 % |
+| 1500 Hz | 13.3 ms | 55 Hz | 73 % |
+
+It needs the pulse_width funscript range 4–20 (the default; restim's own is
+4–10, and the report says to change it). `rate` uses `continuous_pulse_hz`
+instead. Presets and reports saved before this option existed load as `rate`,
+and the `-fw2-70hz` built-in presets keep it too.
+
 ### `continuous_pulse_hz` — `--continuous-pulse-hz` — default `70`
 
-FOC pulse rate used in continuous and volume modes. Pulses fill the period except
+Rate of the `rate` train (and of firmware 1.x). Pulses fill the period except
 for FOC-Stim's 5 ms minimum pause, so the rate sets the trade-off between rate
 and pulse length:
 
@@ -238,7 +263,7 @@ Defaults equal restim's kit defaults:
 | `alpha`, `beta` | −1–1 | joined only |
 | `frequency` | 500–1000 Hz | widen to 500–2000 (or 300–2000) for high-carrier tracks |
 | `pulse_frequency` | 0–100 Hz | |
-| `pulse_width` | 4–10 cycles | widen to 3–20 to keep long bursts |
+| `pulse_width` | 4–20 cycles (restim: 4–10) | 20 lets the longest-pulse train and long bursts through |
 | `pulse_rise_time` | 2–20 cycles | FOC-Stim caps at 10 |
 | `pulse_interval_random` | 0–1 | |
 

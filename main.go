@@ -81,12 +81,18 @@ func run(args []string) error {
 		if err != nil {
 			return fmt.Errorf("preset %q: %w (built-in: %s)", name, err, builtinNames())
 		}
+		if msg := config.UpgradeFirmware(&c); msg != "" {
+			fmt.Fprintf(os.Stderr, "warning: preset %s: %s\n", name, msg)
+		}
 		cfg = c
 	}
 	if path, ok := flagValue(args, "config"); ok {
 		c, err := config.Load(path)
 		if err != nil {
 			return err
+		}
+		if msg := config.UpgradeFirmware(&c); msg != "" {
+			fmt.Fprintf(os.Stderr, "warning: %s: %s\n", path, msg)
 		}
 		cfg = c
 	}
@@ -120,7 +126,9 @@ func run(args []string) error {
 	fs.StringVar(&cfg.Params, "params", cfg.Params, "merge of differing A/B carrier/rhythm: weighted | dominant | constant (don't write pulse axes)")
 	fs.StringVar(&cfg.Rhythm, "rhythm", cfg.Rhythm, "render envelope rhythm as: pulses | volume | auto (by fusion frequency)")
 	fs.Float64Var(&cfg.FusionHz, "fusion-hz", cfg.FusionHz, "auto: rhythms at or above this rate become FOC pulses")
-	fs.Float64Var(&cfg.ContinuousPulseHz, "continuous-pulse-hz", cfg.ContinuousPulseHz, "FOC pulse rate for steady / volume-rendered segments; pulses fill the period except for FOC-Stim's 5 ms minimum pause")
+	fs.Var(&cfg.Firmware, "firmware", "FOC-Stim firmware the pulse timing is written for, e.g. v2.0.3 (2.x: 5 ms minimum pause, restim v1.67; 1.x: restim v1.66, unsupported; default "+config.CurrentFirmware.String()+")")
+	fs.StringVar(&cfg.ContinuousPulse, "continuous-pulse", cfg.ContinuousPulse, "firmware 2.x, steady / volume-rendered segments: longest (longest pulse + minimum pause; the rate follows the carrier) | rate (--continuous-pulse-hz)")
+	fs.Float64Var(&cfg.ContinuousPulseHz, "continuous-pulse-hz", cfg.ContinuousPulseHz, "fixed-rate continuous train: pulse rate; pulses fill the period except for the 5 ms minimum pause (firmware 1.x: 90% of it)")
 	fs.StringVar(&cfg.Position, "position", cfg.Position, "joined: track (alpha/beta from the A/B relation) | ab (current only between FOC-Stim outputs A and B; two electrodes)")
 	fs.StringVar(&cfg.IFC, "ifc", cfg.IFC, "joined: interferential beat of different carriers: beat | off")
 	fs.StringVar(&cfg.Intensity, "intensity", cfg.Intensity, "volume measure: effective (strength-duration) | current")

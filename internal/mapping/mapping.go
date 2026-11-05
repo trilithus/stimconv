@@ -173,7 +173,7 @@ func Map(f *analysis.Features, cfg config.Config) (*Result, error) {
 			if cfg.IFC == "beat" && cfg.Position != "ab" && math.Min(lA, lB) > 0.2*v && v > 0 {
 				beat := physio.Beat(cs[0].carrier, cs[1].carrier)
 				// half-period pulses keep the minimum pause up to this beat
-				if beat >= 3 && beat <= 1/(2*config.FOCMinPauseS) {
+				if beat >= 3 && beat <= math.Min(cfg.MaxPulseHz(), 1/(2*cfg.MinPauseS())) {
 					fc := clamp(sh.carrier, foc["frequency"])
 					sh.mode = ModeIFC
 					sh.pf = beat
@@ -278,7 +278,7 @@ func channelAt(f *analysis.Features, c int, t, step float64, cfg config.Config, 
 	if mode == ModePulses {
 		duty := analysis.At(ch.Duty, analysis.FrameRate, t)
 		attack := analysis.At(ch.Attack, analysis.FrameRate, t)
-		s.pf = clamp(rate, foc["pulse_frequency"])
+		s.pf = clamp(rate, config.Range{Min: foc["pulse_frequency"].Min, Max: cfg.MaxPulseHz()})
 		w := duty / rate * fc
 		s.w = clampCount(w, foc["pulse_width"], nil, &cnt.widthClamp)
 		if config.FOCMaxPulseS*fc < s.w {
@@ -290,12 +290,33 @@ func channelAt(f *analysis.Features, c int, t, step float64, cfg config.Config, 
 			s.rnd = math.Min(j, 1)
 		}
 	} else {
-		s.pf = cfg.ContinuousPulseHz
-		s.w = clamp((1/s.pf-config.FOCMinPauseS)*fc, foc["pulse_width"])
-		s.w = math.Min(s.w, config.FOCMaxPulseS*fc)
+		s.pf, s.w = continuousTrain(fc, cfg)
 		s.r = foc["pulse_rise_time"].Min
 	}
 	return s
+}
+
+// continuousTrain is the pulse rate and width (cycles) of a steady segment at
+// carrier fc. The longest-pulse train plays the longest pulse restim will
+// pass on (FOC-Stim's 20 cycles / 35 ms, within the funscript range) and the
+// minimum pause, so most of the time carries current; the fixed-rate train
+// fills ContinuousPulseHz except for the pause (90% of it on firmware 1.x,
+// which has none).
+func continuousTrain(fc float64, cfg config.Config) (pf, w float64) {
+	foc := config.FOCLimits
+	maxW := math.Min(foc["pulse_width"].Max, config.FOCMaxPulseS*fc)
+	if cfg.LongestPulse() {
+		// restim reads the carrier and width clipped to the funscript ranges
+		f := clamp(fc, cfg.Ranges["frequency"])
+		w = math.Min(math.Min(foc["pulse_width"].Max, config.FOCMaxPulseS*f), cfg.Ranges["pulse_width"].Max)
+		w = math.Max(w, foc["pulse_width"].Min)
+		return math.Min(1/(w/f+cfg.MinPauseS()), cfg.MaxPulseHz()), w
+	}
+	pf = math.Min(cfg.ContinuousPulseHz, cfg.MaxPulseHz())
+	if cfg.FW1() {
+		return pf, clamp(0.9*fc/pf, config.Range{Min: foc["pulse_width"].Min, Max: maxW})
+	}
+	return pf, clamp((1/pf-cfg.MinPauseS())*fc, config.Range{Min: foc["pulse_width"].Min, Max: maxW})
 }
 
 // fitPause makes a pulse train playable with FOC-Stim's minimum pause, using
@@ -306,14 +327,14 @@ func channelAt(f *analysis.Features, c int, t, step float64, cfg config.Config, 
 func fitPause(pf, w, carrier float64, cfg config.Config) (float64, float64, bool) {
 	fc := clamp(carrier, cfg.Ranges["frequency"])
 	minW := math.Max(config.FOCLimits["pulse_width"].Min, cfg.Ranges["pulse_width"].Min)
-	room := (1/pf - config.FOCMinPauseS) * fc
+	room := (1/pf - cfg.MinPauseS()) * fc
 	if w <= room+1e-9 {
 		return pf, w, false
 	}
 	if room >= minW {
 		return pf, room, true
 	}
-	return 1 / (minW/fc + config.FOCMinPauseS), minW, true
+	return 1 / (minW/fc + cfg.MinPauseS()), minW, true
 }
 
 // independent reports whether A and B carry different content at time t:

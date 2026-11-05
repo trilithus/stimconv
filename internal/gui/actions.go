@@ -166,6 +166,7 @@ func (u *ui) importReport() {
 // built-in, so Save stores them under it.
 func (u *ui) applyImported(e config.Embedded, from string) {
 	u.cfg = e.Config
+	defer u.firmwareNotice(&u.cfg, from)
 	name := ""
 	if presets.ValidateName(e.Preset) == nil {
 		name = e.Preset
@@ -492,6 +493,7 @@ func (u *ui) loadPreset(name string) {
 		return
 	}
 	u.cfg, u.preset = c, name
+	defer u.firmwareNotice(&u.cfg, "preset "+name)
 	if _, builtin := presets.Lookup(name); builtin {
 		u.presetName.Set("")
 	} else {
@@ -644,6 +646,25 @@ func (u *ui) startOrCancel() {
 			}
 		})
 	}()
+}
+
+// firmwareNotice moves settings opened from from to the current firmware
+// when they were authored for an unsupported (or unrecorded) one, and tells
+// the user in a dialog and the log.
+func (u *ui) firmwareNotice(c *config.Config, from string) {
+	authored := c.Firmware
+	msg := config.UpgradeFirmware(c)
+	if msg == "" {
+		return
+	}
+	u.logf("warning: %s: authored for FOC-Stim firmware %s; settings updated for %s, re-import the original file if its output was made for the old firmware", from, authored, config.CurrentFirmware)
+	u.showNotice("Settings authored for older firmware", from+"\n\n"+msg)
+	u.rebuild()
+}
+
+// showNotice shows a native warning dialog without blocking the UI thread.
+func showNotice(title, text string) {
+	go zenity.Warning(text, zenity.Title(title), zenity.Icon(zenity.WarningIcon))
 }
 
 // askOverwrite shows a native confirmation dialog listing the existing files

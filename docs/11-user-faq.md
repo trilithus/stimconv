@@ -144,10 +144,11 @@ between A and B may then be read as rhythm.
 
 ### Steady sections have a slight pulsing "texture"
 
-Steady and volume-rendered sections are played as a 70 Hz FOC pulse train
-(`--continuous-pulse-hz`), because FOC-Stim firmware 2.x always leaves at least
-5 ms between pulses. Raising it makes the pulses shorter (100 Hz plays 5 ms on,
-5 ms off), which can feel weaker. Lowering it makes the pulsing perceptible.
+Steady and volume-rendered sections are played as long FOC pulses with 5 ms
+gaps (28–55 Hz, depending on the carrier), because FOC-Stim firmware 2.x always
+leaves at least 5 ms between pulses. If the pulsing bothers you, use a
+`-fw2-70hz` preset or `--continuous-pulse rate`: 70 Hz is smoother but carries
+less charge, so it needs a higher restim volume.
 
 ---
 

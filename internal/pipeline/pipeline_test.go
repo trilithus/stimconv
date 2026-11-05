@@ -223,7 +223,7 @@ func TestReadme(t *testing.T) {
 	md := string(b)
 	for _, want := range []string{
 		"converted from the audio drive signal in `my track.wav`",
-		"restim " + RestimVersion, "FOC-Stim firmware " + FOCStimVersion,
+		"restim " + RestimVersion, "FOC-Stim firmware " + FOCStimVersion, "Authored against FOC-Stim firmware " + config.CurrentFirmware.String(),
 		"| Device wizard | Device type | FOC-Stim 3-phase |",
 		"| Preset | soft |",
 		"| `topology` | joined | yes |",
@@ -337,6 +337,9 @@ func TestReferenceVersions(t *testing.T) {
 		t.Skipf("git describe: %v", err)
 	} else if got := strings.TrimSpace(string(out)); got != FOCStimVersion {
 		t.Errorf("%s is at %s, restim.go says %s: re-check the defaults there and update the version", foc, got, FOCStimVersion)
+	}
+	if FOCStimVersion != config.CurrentFirmware.String() {
+		t.Errorf("FOCStimVersion %s and config.CurrentFirmware %s differ", FOCStimVersion, config.CurrentFirmware)
 	}
 	// a fork with commits of its own and no release tags, so its version file
 	b, err := os.ReadFile(filepath.Join(restim, "version.py"))

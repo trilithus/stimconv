@@ -4,12 +4,14 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/trilithus/stimconv/internal/config"
 	"github.com/trilithus/stimconv/internal/decode"
 )
 
@@ -17,6 +19,7 @@ import (
 func newTestUI(t *testing.T) *ui {
 	test.NewTempApp(t).Settings().SetTheme(appTheme())
 	u := newUI(nil)
+	u.showNotice = func(title, text string) { t.Logf("notice %q: %s", title, text) }
 	u.icons = os.DirFS("../../assets")
 	return u
 }
@@ -150,5 +153,26 @@ func TestLiveUpdates(t *testing.T) {
 	})
 	if !found {
 		t.Error("console line not shown")
+	}
+}
+
+// Importing settings authored for unsupported firmware shows a notice and
+// updates them; current settings import silently.
+func TestImportOldFirmware(t *testing.T) {
+	u := newTestUI(t)
+	var notices []string
+	u.showNotice = func(title, text string) { notices = append(notices, text) }
+	old := config.Default()
+	old.Firmware = config.Firmware1
+	u.applyImported(config.Embedded{Version: "v0", Preset: "old", Config: old}, "old.md")
+	if len(notices) != 1 || !strings.Contains(notices[0], config.Firmware1.String()) || !strings.Contains(notices[0], config.MinFirmware.String()) {
+		t.Fatalf("notices = %q", notices)
+	}
+	if u.cfg.Firmware != config.CurrentFirmware {
+		t.Errorf("firmware not updated: %v", u.cfg.Firmware)
+	}
+	u.applyImported(config.Embedded{Version: "v0", Preset: "new", Config: config.Default()}, "new.md")
+	if len(notices) != 1 {
+		t.Errorf("current firmware raised a notice: %q", notices)
 	}
 }

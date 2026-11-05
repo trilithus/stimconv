@@ -33,6 +33,19 @@ type readmeInfo struct {
 	TwoLead  bool // tri-phase position ab: output C stays unconnected
 }
 
+// firmwareNote names the firmware the pulse timing was written for and the
+// restim release that pairs with it.
+func firmwareNote(cfg config.Config) string {
+	fw := cfg.Firmware
+	if fw.IsZero() {
+		fw = config.CurrentFirmware
+	}
+	if cfg.FW1() {
+		return fmt.Sprintf("Authored against FOC-Stim firmware %s: use it with restim v1.66 (v1.67 refuses 1.x firmware). On firmware 2.x the pulses get a 5 ms minimum pause and play weaker. Firmware older than %s is no longer supported.", fw, config.MinFirmware)
+	}
+	return fmt.Sprintf("Authored against FOC-Stim firmware %s: use restim v1.67 or newer (restim refuses firmware of another major version).", fw)
+}
+
 // writeReadme writes the report next to the funscripts. It is written for
 // whoever receives the funscripts (setup and restim settings first) and
 // leaves no local paths in it; how they were made comes last.
@@ -46,8 +59,8 @@ func writeReadme(path string, cfg config.Config, info readmeInfo) error {
 		src += fmt.Sprintf(" (%s, %.1f MB)", fmtDuration(info.Duration), float64(st.Size())/1e6)
 	}
 	fmt.Fprintf(&b, "restim funscripts for a FOC-Stim, converted from the audio drive signal in %s.\n\n", src)
-	fmt.Fprintf(&b, "Made with stimconv %s on %s. The restim settings below were checked against restim %s and FOC-Stim firmware %s; other versions may use different defaults. Use restim v1.67 or newer with FOC-Stim firmware 2.x: restim refuses firmware of another major version.\n",
-		version(), time.Now().Format("2006-01-02"), RestimVersion, FOCStimVersion)
+	fmt.Fprintf(&b, "Made with stimconv %s on %s. The restim settings below were checked against restim %s and FOC-Stim firmware %s; other versions may use different defaults. %s\n",
+		version(), time.Now().Format("2006-01-02"), RestimVersion, FOCStimVersion, firmwareNote(cfg))
 
 	fmt.Fprintf(&b, "\n## Setup\n\n")
 	fmt.Fprintf(&b, "1. Put the funscripts next to the video. restim links them by name: `<video name>.<axis>.funscript`. These are named after `%s`; if the video has another name, rename the part before the axis (for example `%s.volume.funscript` becomes `<video name>.volume.funscript`).\n", mdInline(base), mdInline(base))

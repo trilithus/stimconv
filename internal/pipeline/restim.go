@@ -24,7 +24,7 @@ type RestimSetting struct {
 // release; they change none of the defaults below.
 const (
 	RestimVersion  = "v1.67"
-	FOCStimVersion = "v2.0.3"
+	FOCStimVersion = "v2.0.3" // = config.CurrentFirmware (a test checks)
 )
 
 // restim's defaults, from reference/restim: qt_ui/settings.py (device
