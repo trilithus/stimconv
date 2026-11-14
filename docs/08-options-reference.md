@@ -133,11 +133,14 @@ restim v1.66) has no minimum pause and accepts at most 100 pulses/s; the
 fixed-rate train then fills 90 % of the period (use `continuous_pulse_hz` 100
 for the old default).
 
-### `continuous_pulse` — `--continuous-pulse` — default `longest` — firmware 2.x
+### `continuous_pulse` — `--continuous-pulse` — default `rate` — firmware 2.x
 
-Pulse train for continuous and volume modes. `longest` plays the longest pulse
-FOC-Stim allows (20 cycles, at most 35 ms) and then the minimum pause, so the
-rate follows the carrier:
+Pulse train for continuous and volume modes. `rate` (default) plays
+`continuous_pulse_hz` with the pulse filling the period except for the 5 ms
+minimum pause; at 70 Hz the rate itself is not felt
+([7.5](07-research-basis.md#75-electrotactile-perception)). `longest`, for
+comparison, plays the longest pulse FOC-Stim allows (20 cycles, at most 35 ms)
+and then the minimum pause, so the rate follows the carrier:
 
 | Carrier | On | Rate | Duty |
 |---|---|---|---|
@@ -145,10 +148,12 @@ rate follows the carrier:
 | 1000 Hz | 20 ms | 40 Hz | 80 % |
 | 1500 Hz | 13.3 ms | 55 Hz | 73 % |
 
-It needs the pulse_width funscript range 4–20 (the default; restim's own is
-4–10, and the report says to change it). `rate` uses `continuous_pulse_hz`
-instead. Presets and reports saved before this option existed load as `rate`,
-and the `-fw2-70hz` built-in presets keep it too.
+It carries current more of the time, but its rate is felt, changes with the
+carrier, and its 13–35 ms pulses are where sharpness and pain start. It needs
+the pulse_width funscript range 4–20 (the default; restim's own is 4–10, and
+the report says to change it). Presets and reports saved before this option
+existed load as `rate`; settings saved by v0.0.21–v0.0.22 with `longest` keep
+it.
 
 ### `continuous_pulse_hz` — `--continuous-pulse-hz` — default `70`
 
@@ -263,7 +268,7 @@ Defaults equal restim's kit defaults:
 | `alpha`, `beta` | −1–1 | joined only |
 | `frequency` | 300–2000 Hz (restim: 500–1000) | FOC-Stim's full carrier range, so no carrier is clipped; set the same in restim's funscript kit |
 | `pulse_frequency` | 0–100 Hz | |
-| `pulse_width` | 4–20 cycles (restim: 4–10) | 20 lets the longest-pulse train and long bursts through |
+| `pulse_width` | 4–20 cycles (restim: 4–10) | 20 lets long rhythm bursts (and the `longest` train) through |
 | `pulse_rise_time` | 2–20 cycles | FOC-Stim caps at 10 |
 | `pulse_interval_random` | 0–1 | |
 

@@ -13,7 +13,7 @@
 | Volume = max(A, B) | Simple, never exceeds either channel | In blend the quieter pair also receives current; in joined, the common electrode carries the sum | Sum or RMS variants |
 | p99 normalisation per track | Robust to spikes | Levels aren't comparable between tracks | `normalize = abs` with a fixed reference |
 | Auto overlap: multiplex independent content at 4 Hz | Keeps each pair's carrier and rhythm, isolates pairs | Adds a 4 Hz alternation and halves duty; transitions are 30 % of each slot | Compare against `blend` |
-| No loudness compensation for the 5 ms pause | Compensating would raise the peak current above the recorded level, against the `original` presets | The longest-pulse train recovers most of firmware 1.x's duty (73–86 % instead of 90 %); the fixed 70 Hz train lost about 28 % of the charge per second | A/B `continuous_pulse longest` against `rate` at the same restim volume, and steady against pulsed sections of one track |
+| No loudness compensation for the 5 ms pause | Compensating would raise the peak current above the recorded level, against the `original` presets | Steady sections carry less charge per second than on firmware 1.x (65 % duty instead of 90 %); on a (charge − threshold) × rate model the felt loss is small, and the volume increase first reported was mostly a FOC-Stim built for the wrong transformer | A/B `continuous_pulse rate` against `longest` on the correct firmware, and steady against pulsed sections of one track |
 | Mono → equal positions (1,1,1,1) in dual | Both pairs were driven identically | FOC-Stim's (1,1,1,1) also sends current across the pairs, which the original never did | Compare `multiplex` with very low `mux_hz`, or physical rewiring |
 
 ## 10.2 Known technical limitations
@@ -30,8 +30,8 @@
   385 Hz can appear, though they are clipped to the funscript range.
 - **Rhythm thresholds** (depth 0.35, correlation 0.3, 85 % peak) are tuned on
   two tracks and are not options.
-- **Continuous mode adds a pulse structure** (28–55 Hz with `longest`, 70 Hz
-  with `rate`) that the original didn't have, with no perceptual compensation. FOC-Stim's 5 ms minimum pause means the
+- **Continuous mode adds a pulse structure** (70 Hz by default, 28–55 Hz with
+  `longest`) that the original didn't have, with no perceptual compensation. FOC-Stim's 5 ms minimum pause means the
   gaps can't be made shorter, so the modulation is deeper than the 1 ms gaps at
   100 Hz that firmware 1.x allowed.
 - **Joined + circuit model**: the circuit is modelled per channel, which ignores

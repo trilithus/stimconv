@@ -144,11 +144,20 @@ between A and B may then be read as rhythm.
 
 ### Steady sections have a slight pulsing "texture"
 
-Steady and volume-rendered sections are played as long FOC pulses with 5 ms
-gaps (28–55 Hz, depending on the carrier), because FOC-Stim firmware 2.x always
-leaves at least 5 ms between pulses. If the pulsing bothers you, use a
-`-fw2-70hz` preset or `--continuous-pulse rate`: 70 Hz is smoother but carries
-less charge, so it needs a higher restim volume.
+Steady and volume-rendered sections are played as a 70 Hz FOC pulse train
+(9.3 ms on, 5 ms off), because FOC-Stim firmware 2.x always leaves at least
+5 ms between pulses. At 70 Hz the pulse rate itself is hardly felt.
+`--continuous-pulse longest` plays longer pulses at 28–55 Hz instead: more
+charge, but the pulsing can be felt.
+
+### The output got weaker after updating FOC-Stim
+
+Check that the firmware matches your transformer: FOC-Stim v4 has one build
+per transformer (`focstim_v4` for the 42TL004, `focstim_v4_42tl001` for the
+42TL001). With the 42TL004 build on a 42TL001 board the device delivers about
+71 % of the asked current (6.66 / 9.37), and its current and skin readings are
+off. After installing the right build, the same settings deliver about 1.4×
+the current, so lower the volume first.
 
 ---
 

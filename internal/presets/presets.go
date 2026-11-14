@@ -65,9 +65,9 @@ var Builtins = []Builtin{
 	{"[mono-original]", "For mono tracks, as the original box played them on one channel: two electrodes on FOC-Stim outputs A and B, output C unconnected (tri-phase). Volume follows the track exactly as recorded.", mono},
 }
 
-// rate70 suffixes the presets kept as they were before the longest-pulse
-// continuous train became the default (firmware 2.x, 70 Hz fixed rate,
-// restim's 4-10 cycle pulse_width range).
+// rate70 suffixes the presets added in v0.0.21, when the longest-pulse train
+// was briefly the default: the 70 Hz fixed-rate train with restim's 4-10
+// cycle pulse_width range. They stay so existing references keep working.
 const rate70 = "-fw2-70hz"
 
 func init() {
@@ -76,7 +76,7 @@ func init() {
 		cfg := b.cfg
 		Builtins = append(Builtins, Builtin{
 			Name: strings.TrimSuffix(b.Name, "]") + rate70 + "]",
-			Desc: b.Desc + " Steady segments use the earlier 70 Hz pulse train (firmware 2.x, 9.3 ms on, 5 ms off) and restim's default pulse width range.",
+			Desc: b.Desc + " With restim's default pulse width range (4-10 cycles), so long rhythm bursts are shortened.",
 			cfg:  func() config.Config { return config.Rate70(cfg()) },
 		})
 	}

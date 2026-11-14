@@ -57,11 +57,15 @@ type Config struct {
 	Firmware FirmwareVersion `json:"firmware"`
 	// ContinuousPulse is the pulse train used when the rhythm is carried by
 	// the volume axis (or no rhythm is present), on firmware 2.x:
-	// "longest" plays the longest pulse FOC-Stim allows (20 cycles, at most
+	// "rate" (default) plays ContinuousPulseHz with the pulse filling the
+	// period except for the minimum pause (70 Hz: 9.3 ms on, 5 ms off). 70 Hz
+	// stays above the ~50-66 Hz point where the rate stops being felt, so a
+	// steady section gets no rhythm of its own, and keeps pulses well below
+	// the 20 ms where pain thresholds are lowest.
+	// "longest" (opt-in, for comparison) plays the longest pulse FOC-Stim allows (20 cycles, at most
 	// 35 ms) followed by the minimum pause, so the rate follows the carrier
-	// (28 Hz at 650 Hz, 40 Hz at 1 kHz) and the duty stays at 73-86%;
-	// "rate" plays ContinuousPulseHz with the pulse filling the period except
-	// for the minimum pause (70 Hz: 9.3 ms on, 5 ms off, 65% duty).
+	// (28 Hz at 650 Hz, 40 Hz at 1 kHz) and the duty stays at 73-86%, but
+	// the rate is felt and changes with the carrier.
 	// Firmware 1.x always uses "rate" with the pulse filling 90% of the
 	// period, as before firmware 2.0.
 	ContinuousPulse string `json:"continuous_pulse"`
@@ -155,8 +159,8 @@ func (c Config) FW1() bool { return c.fw1() }
 // unbalanced tracks mixing waveforms. presets.Builtins derives the other
 // built-in presets from it. Ranges default to restim's funscript kit
 // defaults (qt_ui/models/funscript_kit.py), except pulse_width, which goes
-// up to FOC-Stim's 20 cycles for the longest-pulse train (the report asks for
-// the same range in restim).
+// up to FOC-Stim's 20 cycles so long rhythm bursts are not clipped (the
+// report asks for the same range in restim).
 func Default() Config {
 	return Config{
 		Topology:          "joined",
@@ -168,7 +172,7 @@ func Default() Config {
 		Rhythm:            "auto",
 		FusionHz:          12,
 		Firmware:          CurrentFirmware,
-		ContinuousPulse:   "longest",
+		ContinuousPulse:   "rate",
 		ContinuousPulseHz: 70,
 		IFC:               "beat",
 		Position:          "track",
@@ -203,7 +207,7 @@ func Default() Config {
 			"beta":                  {-1, 1},
 			"frequency":             {300, 2000}, // FOC-Stim's full carrier range (restim: 500-1000)
 			"pulse_frequency":       {0, 100},
-			"pulse_width":           {4, 20}, // restim: 4-10; 20 lets the longest-pulse train through
+			"pulse_width":           {4, 20}, // restim: 4-10; 20 lets long rhythm bursts (and the longest-pulse train) through
 			"pulse_rise_time":       {2, 20},
 			"pulse_interval_random": {0, 1},
 		},
@@ -230,9 +234,9 @@ func Load(path string) (Config, error) {
 	return c, c.Validate()
 }
 
-// Rate70 turns c into the continuous train of stimconv before the
-// longest-pulse train: 70 Hz fixed rate on firmware 2.x, with restim's
-// default 4-10 cycle pulse_width range.
+// Rate70 turns c into the settings of the v0.0.21 "-fw2-70hz" presets: the
+// 70 Hz fixed-rate train on firmware 2.x with restim's default 4-10 cycle
+// pulse_width range.
 func Rate70(c Config) Config {
 	c.Firmware, c.ContinuousPulse, c.ContinuousPulseHz = CurrentFirmware, "rate", 70
 	r := make(map[string]Range, len(c.Ranges))
@@ -245,8 +249,7 @@ func Rate70(c Config) Config {
 }
 
 // Unmarshal merges JSON over c. A file without continuous_pulse predates
-// the longest-pulse train, so it keeps the "rate" train it was made with
-// rather than taking today's default. A file without firmware keeps it zero
+// the option and was made with the "rate" train. A file without firmware keeps it zero
 // (unrecorded), so UpgradeFirmware can flag it.
 func Unmarshal(b []byte, c *Config) error {
 	c.ContinuousPulse, c.Firmware = "", FirmwareVersion{}

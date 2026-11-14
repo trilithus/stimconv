@@ -138,13 +138,15 @@ force.
   `pulses` mode. `volume`/continuous mode does switch to a 70 Hz pulse train,
   a known gap (see [10](10-open-issues.md)).
 - FOC-Stim's 5 ms minimum pause forces a choice between rate and pulse length.
-  The default `continuous_pulse longest` favours pulse length and duty: 20-cycle
-  pulses (13–35 ms) at 28–55 Hz carry current 73–86 % of the time, close to the
-  90 % of firmware 1.x. With the fixed 70 Hz train (`rate`, kept in the
-  `-fw2-70hz` presets) steady sections needed a clearly higher restim volume.
-  The cost is a rate below the 50–66 Hz quality transition, so the pulsing may
-  be felt; 70 Hz stays above it with 9.3 ms pulses, and 5 ms pulses at 100 Hz
-  would fall below the 7 ms sensory limit.
+  The default fixed 70 Hz train (`continuous_pulse rate`) plays 9.3 ms pulses:
+  above the 50–66 Hz quality transition, so a steady section gets no rhythm of
+  its own (the original's continuous carrier had none), and above the ~7 ms
+  burst length where sensory thresholds stop falling. Intensity follows
+  (charge − threshold) × rate, so slower, longer pulses gain little: the
+  opt-in `longest` train (20-cycle pulses, 13–35 ms, at 28–55 Hz) carries more
+  charge, but its rate is felt and follows the carrier, and bursts of 20 ms or
+  more are where pain thresholds are lowest. 5 ms pulses at 100 Hz would fall
+  below the 7 ms sensory limit.
 
 **Limits.** These studies mostly concern fingertip electrotactile displays and
 sensory, not motor, responses. The rate/length trade-off combines nerve-cuff data from

@@ -59,7 +59,9 @@ func TestOlderFilesKeepRateTrain(t *testing.T) {
 		t.Fatalf("old file: %+v, %v", c, err)
 	}
 	cur := filepath.Join(dir, "new.json")
-	if err := Default().Save(cur); err != nil {
+	nc := Default()
+	nc.ContinuousPulse = "longest"
+	if err := nc.Save(cur); err != nil {
 		t.Fatal(err)
 	}
 	if c, err := Load(cur); err != nil || c.ContinuousPulse != "longest" {

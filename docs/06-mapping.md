@@ -31,7 +31,7 @@ Each channel is in one of these modes:
 | Mode | When | Level taken from | Pulse parameters |
 |---|---|---|---|
 | **pulses** | rhythm present, and `rhythm = pulses`, or `rhythm = auto` with rate ≥ `fusion_hz` | slow envelope **S** at t | rate = rhythm (1–100 Hz); width = duty / rate × f_c cycles (3–20, ≤ 0.035·f_c); rise = attack × f_c cycles (2–10); randomisation = jitter if > 0.05 |
-| **volume** | rhythm present, and `rhythm = volume`, or `auto` with rate < `fusion_hz` | **max of E** within ±step/2 | `longest`: width = 20 cycles (≤ 0.035·f_c and the funscript range), rate = 1 / (width / f_c + 5 ms); `rate`: rate = `continuous_pulse_hz`, width = (1 / rate − 5 ms) · f_c; rise = 2 |
+| **volume** | rhythm present, and `rhythm = volume`, or `auto` with rate < `fusion_hz` | **max of E** within ±step/2 | `rate` (default): rate = `continuous_pulse_hz`, width = (1 / rate − 5 ms) · f_c; `longest`: width = 20 cycles (≤ 0.035·f_c and the funscript range), rate = 1 / (width / f_c + 5 ms); rise = 2 |
 | **continuous** | no rhythm detected | max of E within ±step/2 | as for volume |
 | **ifc** | joined only; see [6.7](#67-interferential-beat-joined) | as continuous | rate = beat |
 | **silent** | gated envelope | — | parameters held from the last active step |
@@ -48,10 +48,9 @@ Each channel is in one of these modes:
   separate twitch. Its timing and shape matter, and they are slow enough for
   the ~30 ms update path. Meanwhile the FOC pulse train stands in for the
   original's continuous carrier as closely as the 5 ms minimum pause allows
-  (`continuous_pulse longest`: 20-cycle pulses and 5 ms off, 28–55 Hz and
-  73–86 % duty; `rate` 70 Hz gives 9.3 ms on and 65 %). A higher rate means
-  shorter pulses and a lower duty; a lower rate gains duty but can be felt as
-  pulsing
+  (default `continuous_pulse rate`, 70 Hz: 9.3 ms on, 5 ms off; the opt-in
+  `longest` plays 20-cycle pulses at 28–55 Hz). A higher rate means shorter
+  pulses; a lower rate gains charge but is felt as pulsing
   ([7.5](07-research-basis.md#75-electrotactile-perception)).
 - *No rhythm → continuous*, with volume following the full envelope E. That is
   why slow patterns that fall outside the rhythm band, such as 1.9 Hz ramps,

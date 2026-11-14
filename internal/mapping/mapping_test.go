@@ -136,7 +136,7 @@ func checkPause(t *testing.T, res *Result, cfg config.Config) {
 	}
 }
 
-// The default longest-pulse train plays 20 cycles (at most 35 ms) and the
+// The longest-pulse train plays 20 cycles (at most 35 ms) and the
 // minimum pause, so the rate follows the carrier; firmware 1.x plays the
 // fixed rate with 90% fill and no pause.
 func TestContinuousTrainLongest(t *testing.T) {
@@ -147,6 +147,7 @@ func TestContinuousTrainLongest(t *testing.T) {
 		{1500, 1 / (20.0/1500 + 0.005), 20},
 	} {
 		cfg := config.Default()
+		cfg.ContinuousPulse = "longest"
 		wideRanges(&cfg)
 		res := run(t, 3, cfg, func(t float64) (float64, float64) {
 			v := 0.5 * math.Sin(2*math.Pi*c.carrier*t)
@@ -163,6 +164,7 @@ func TestContinuousTrainLongest(t *testing.T) {
 	}
 	// the funscript range caps the width as restim will read it
 	cfg := config.Default()
+	cfg.ContinuousPulse = "longest"
 	cfg.Ranges["pulse_width"] = config.Range{Min: 4, Max: 10}
 	res := run(t, 3, cfg, func(t float64) (float64, float64) {
 		v := 0.5 * math.Sin(2*math.Pi*800*t)
@@ -192,7 +194,7 @@ func warned(res *Result, text string) bool {
 // the carrier.
 func TestContinuousTrainKeepsMinimumPause(t *testing.T) {
 	for _, carrier := range []float64{650, 800, 1000, 1500} {
-		cfg := config.Rate70(config.Default())
+		cfg := config.Default() // the fixed 70 Hz train is the default
 		wideRanges(&cfg)
 		res := run(t, 3, cfg, func(t float64) (float64, float64) {
 			v := 0.5 * math.Sin(2*math.Pi*carrier*t)
